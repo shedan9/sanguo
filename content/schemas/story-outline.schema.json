@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "三线故事制作大纲，不进入运行包",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "scope",
+    "status",
+    "includedInRuntime",
+    "routes"
+  ],
+  "properties": {
+    "formatVersion": {
+      "const": 1
+    },
+    "scope": {
+      "const": "story-outline"
+    },
+    "status": {
+      "const": "draft"
+    },
+    "includedInRuntime": {
+      "const": false
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/route"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  },
+  "$defs": {
+    "participant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generalId",
+        "role"
+      ],
+      "properties": {
+        "generalId": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "role": {
+          "type": "string",
+          "pattern": "\\S"
+        }
+      }
+    },
+    "ending": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tone",
+        "text"
+      ],
+      "properties": {
+        "tone": {
+          "enum": [
+            "benevolence",
+            "hegemony",
+            "compact"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "pattern": "\\S"
+        }
+      }
+    },
+    "beat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "chapter",
+        "era",
+        "goal",
+        "obstacle",
+        "choice",
+        "consequence",
+        "nextId",
+        "milestone",
+        "participants"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "title": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "chapter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "era": {
+          "enum": [
+            "opening_184",
+            "after_time_skip",
+            "later_campaign"
+          ]
+        },
+        "goal": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "obstacle": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "choice": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "consequence": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "nextId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "\\S"
+        },
+        "milestone": {
+          "enum": [
+            null,
+            "first_city",
+            "dual_general",
+            "relay_battle",
+            "unification",
+            "epilogue"
+          ]
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/participant"
+          }
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "origin",
+        "title",
+        "premise",
+        "resolution",
+        "beats",
+        "endings"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "origin": {
+          "enum": [
+            "damage",
+            "control",
+            "tank"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "premise": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "resolution": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "beats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/beat"
+          },
+          "minItems": 15,
+          "maxItems": 15
+        },
+        "endings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ending"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      }
+    }
+  }
+}

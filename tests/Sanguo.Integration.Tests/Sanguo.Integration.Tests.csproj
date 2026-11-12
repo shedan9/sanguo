@@ -11,6 +11,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <Content Include="../../content/manifests/*.json" Link="SourceFixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../content/planning/*.json" Link="StoryFixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <ProjectReference Include="../../src/Sanguo.Content/Sanguo.Content.csproj" />
     <ProjectReference Include="../../src/Sanguo.Infrastructure/Sanguo.Infrastructure.csproj" />
   </ItemGroup>

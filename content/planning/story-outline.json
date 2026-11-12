@@ -1,0 +1,731 @@
+{
+  "formatVersion": 1,
+  "scope": "story-outline",
+  "status": "draft",
+  "includedInRuntime": false,
+  "routes": [
+    {
+      "id": "story.damage",
+      "origin": "damage",
+      "title": "守一乡，护天下",
+      "premise": "村落遇袭后寻找失散者，主角从依赖武力护乡转向承担约束己方武力的责任。",
+      "resolution": "统一后回应乡人、旧友与外来者，检验护乡承诺是否已经能平等保护天下人。",
+      "beats": [
+        {
+          "id": "story.damage.01",
+          "title": "村口不退",
+          "chapter": 0,
+          "era": "opening_184",
+          "goal": "护住柳平近郊乡人，找到失散的妹妹阿榆。",
+          "obstacle": "袭村者退走，同伴何峻要立即追击，尚有伤者留在村中。",
+          "choice": "先护送伤者还是率人追击；两路最终都须通过教学牌局。",
+          "consequence": "护送留下救援见证，追击留下冒令线索；阿榆随流民队离开，求援信成为共同下一目标。",
+          "nextId": "story.damage.02",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.damage.02",
+          "title": "驿路上的陌生人",
+          "chapter": 1,
+          "era": "after_time_skip",
+          "goal": "送出求援信，并循驿路寻找失散者。",
+          "obstacle": "冒令者封路，地方受托者数度推诿；章间跳时后乡人的暂居地仍无保障。",
+          "choice": "先公开冒令证据还是先打通护送路线；自主决定是否接受关羽援助和招募邀约。",
+          "consequence": "驿路牌局胜利打开柳平线索；主角得知阿榆已在城外，原庇护势力却准备再次驱逐乡人。",
+          "nextId": "story.damage.03",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "guanyu",
+              "role": "因共同护送而作见证与可选援助，拒绝招募也能继续送信。"
+            }
+          ]
+        },
+        {
+          "id": "story.damage.03",
+          "title": "一城容身",
+          "chapter": 2,
+          "era": "after_time_skip",
+          "goal": "为失散乡人取得能够自行守护的柳平城。",
+          "obstacle": "守城者借流民纠纷拒绝进出，何峻要求战后报复全部守军家属。",
+          "choice": "许诺分别追责还是以立威为先；无论立场都必须赢下外围及城内两场牌局。",
+          "consequence": "只有最终卡牌胜利才取得首城；阿榆归队讲述敌方也有被裹挟者，何峻对主角的处置留下分歧。",
+          "nextId": "story.damage.04",
+          "milestone": "first_city",
+          "participants": [
+            {
+              "generalId": "zhangliao",
+              "role": "外围冲突中的对手立场候选，具体场次待SG-008确定。"
+            },
+            {
+              "generalId": "lvbu",
+              "role": "章间跳时后的城内守将候选；不以调整其完整技能平衡剧情。"
+            }
+          ]
+        },
+        {
+          "id": "story.damage.04",
+          "title": "旧债入城",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "阻止护乡队把私人复仇带进新城。",
+          "obstacle": "何峻私扣一名旧敌的亲属，部分获救乡人要求主角默认。",
+          "choice": "公开追究同伴的越权，或先私下释放受困者再承诺审查旧案。",
+          "consequence": "受困者安全离开；公开处置让旧友疏远，私下处理则使城民质疑是否仍有隐瞒，为边地事件留下证人。",
+          "nextId": "story.damage.05",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.damage.05",
+          "title": "守住哪一条路",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "打通让新旧居民都能安全通行的邻地道路。",
+          "obstacle": "两处求援接踵而来，何峻主张只护本乡，赵云质疑护乡之名是否排斥外人。",
+          "choice": "先救熟识的乡人，或先解被封的公共驿路；另一处必须安排后续救援。",
+          "consequence": "卡牌挑战依次解决两处危机；先后顺序改变见证者的信任，主角开始建立不按籍贯求援的约定。",
+          "nextId": "story.damage.06",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "zhaoyun",
+              "role": "追问只护故乡是否合理，可选相遇不成为主线必需招募。"
+            }
+          ]
+        },
+        {
+          "id": "story.damage.06",
+          "title": "刀锋之外",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "让一次与强邻的争端不再反复吞没沿途村落。",
+          "obstacle": "张辽所代表的边军要求交出越界者，何峻想用新胜利掩盖旧案。",
+          "choice": "交出证词要求对等查证，或先以守将挑战证明有谈判资格。",
+          "consequence": "任何领地变化仍需卡牌胜利；越界事实被公开，旧友开始认为主角宁护外人也不护自己。",
+          "nextId": "story.damage.07",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "zhangliao",
+              "role": "边地争端的交接者；已招募时改由原部属提出要求。"
+            }
+          ]
+        },
+        {
+          "id": "story.damage.07",
+          "title": "不能替谁发誓",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "回应何峻要求扩大战事的公开请愿。",
+          "obstacle": "阿榆指出请愿中有被迫署名者，强邻又试图以共同报复换取结盟。",
+          "choice": "撤下被迫署名并重议出战，或保留行动但给反对者正式申诉机会。",
+          "consequence": "两种处理都承认乡人有拒绝报复的权利；主角必须组织能约束彼此的协作方式，而非只凭自己发号施令。",
+          "nextId": "story.damage.08",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.damage.08",
+          "title": "并肩而立",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "让队伍在护送与守城的不同判断中仍能互相校正。",
+          "obstacle": "一场分歧使同伴各自为战，何峻把协作视为对自己能力的不信任。",
+          "choice": "由主角先接受他人复核，或让争执双方共同定下轮流主导的约定。",
+          "consequence": "完成本线协同剧情后永久开放双将；不要求持有指定人物，何峻是否赞同只改变后续对话。",
+          "nextId": "story.damage.09",
+          "milestone": "dual_general",
+          "participants": []
+        },
+        {
+          "id": "story.damage.09",
+          "title": "借来的威名",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "处理有人冒用护乡队名义强迫邻城让路的事件。",
+          "obstacle": "冒名者曾受主角保护，且民间传言将主角的胜利当作免受问责的凭据。",
+          "choice": "公开承认自己纵容过立威说法，或先保护指证者再追查传播链。",
+          "consequence": "冒名行为不再被默许；前期追击或护送的见证在此回响，主角决定将承诺写成可公开质询的约束。",
+          "nextId": "story.damage.10",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.damage.10",
+          "title": "强邻的条件",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "拒绝让护一地以牺牲另一地为代价。",
+          "obstacle": "强邻以暂不进攻柳平换取主角放弃外围居民，何峻认为这是保住家乡的唯一办法。",
+          "choice": "拒绝交换并准备共同守御，或先公开条件让各地推举代表参与判断。",
+          "consequence": "决定走向对强邻的正面牌局；城池归属不由承诺改变，主角承担从守一乡到护多地的责任。",
+          "nextId": "story.damage.11",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "caocao",
+              "role": "强邻接触与条件交换的立场参照；已招募时由其说明原势力要求。"
+            }
+          ]
+        },
+        {
+          "id": "story.damage.11",
+          "title": "后来的人",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "在多处战线中给新旧同伴同等的接替责任。",
+          "obstacle": "何峻要求旧乡勇永远占首发，后来加入者质疑为何只能承担收拾残局的工作。",
+          "choice": "由旧友主动让出优先权，或由主角宣布所有人按公开战况自由编队。",
+          "consequence": "完成接战剧情后永久开放车轮；无招募数量门槛，何峻转向支持或仍存异议均不剥夺已招募人物。",
+          "nextId": "story.damage.12",
+          "milestone": "relay_battle",
+          "participants": []
+        },
+        {
+          "id": "story.damage.12",
+          "title": "不以仇止仇",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "结束延续到各地的连环报复。",
+          "obstacle": "旧敌愿透露终局防线，却要求抹掉受害者的申诉；何峻旧案也被重新提出。",
+          "choice": "保护证人并分别审理，或先追究己方再要求对方公开相同材料。",
+          "consequence": "主角无法用统一之名消除旧账；各地对承诺的信任取决于先前处置，下一步要建立可长期守护的共同秩序。",
+          "nextId": "story.damage.13",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.damage.13",
+          "title": "天下也是乡里",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "逐城兑现让百姓免受反复争夺的承诺。",
+          "obstacle": "同盟愿协作却拒绝直接交城，旧友希望靠主角威名跳过挑战。",
+          "choice": "接受公开邀战，或先走完争议地区的申诉；两路均逐城取得合法卡牌记录。",
+          "consequence": "24座目标城的控制与对应牌局记录成为终局前置，盟约或声望不替代胜利；阿榆询问胜利之后谁来约束护乡队。",
+          "nextId": "story.damage.14",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.damage.14",
+          "title": "最后一道门",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "完成终局牌局，结束以保护之名延续的战争。",
+          "obstacle": "最终对手声称只有不受约束的武力才能避免乱世重来。",
+          "choice": "以护民承诺、统一号令或公开盟约说明出战理由；都须赢得终局卡牌战。",
+          "consequence": "全24城记录和终局胜利齐备后才达成统一；主角必须回到家乡回答自己究竟守住了什么。",
+          "nextId": "story.damage.15",
+          "milestone": "unification",
+          "participants": []
+        },
+        {
+          "id": "story.damage.15",
+          "title": "归乡以后",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "回应阿榆与何峻对最初承诺的不同理解。",
+          "obstacle": "家乡期待额外优待，新归附者要求得到同样的安稳，旧友也面临自己曾支持的约束。",
+          "choice": "选择仁政、霸业或盟约作为新秩序取向，并回看先前追责与救援的决定。",
+          "consequence": "尾声分别呈现公开申诉、军令约束或共同誓约如何影响乡人；天下之主不再能只为自己的故乡作答。",
+          "nextId": null,
+          "milestone": "epilogue",
+          "participants": []
+        }
+      ],
+      "endings": [
+        {
+          "tone": "benevolence",
+          "text": "柳平也接受外乡人的申诉。阿榆带主角重走村口，何峻是否愿公开旧案随前期选择回响；护乡队第一次接受由受护者提出的追问。"
+        },
+        {
+          "tone": "hegemony",
+          "text": "主角以统一号令约束护乡队，旧同伴不能再以开国之功私下报复。阿榆问这道号令能否在主角不在时仍被遵守，何峻的回应映照立威与追责的旧决定。"
+        },
+        {
+          "tone": "compact",
+          "text": "故乡人与新归附者共同见证护民之约，各地均可提出违约申诉。何峻是否署名取决于一路相处，约定不因他缺席而失效，阿榆终于无需再替失散者逐一求告。"
+        }
+      ]
+    },
+    {
+      "id": "story.control",
+      "origin": "control",
+      "title": "求一席，立新序",
+      "premise": "辨认伪令却求告无门，主角从等待贤主受理转向亲自建立并接受可纠错的秩序。",
+      "resolution": "统一后让案卷、旧恩、功臣与自身都接受回应，检验规则是否只约束失败者。",
+      "beats": [
+        {
+          "id": "story.control.01",
+          "title": "被改过的名字",
+          "chapter": 0,
+          "era": "opening_184",
+          "goal": "保住一份冒令害民的原始文书及被误列的村民。",
+          "obstacle": "原抄录吏陈简要焚稿自保，主角自己的署名也在副本中。",
+          "choice": "先救被牵连者还是先抢回原稿；教学牌局后都留下可继续追查的证据。",
+          "consequence": "救人获得口述见证，保稿留下笔迹比对；两者都不能自动洗清案件，主角必须离乡寻找受理者。",
+          "nextId": "story.control.02",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.02",
+          "title": "谁肯听证",
+          "chapter": 1,
+          "era": "after_time_skip",
+          "goal": "让证词得到正式回应，找到不会随意销毁材料的地方。",
+          "obstacle": "章间跳时后的求告仍被转交，恩主顾衡愿引荐却要求先删去涉其门客的部分；曹操使者亦索取副本。",
+          "choice": "公开保全副本，或先让各方共同见证原稿封存；不以投靠某人作为主线门槛。",
+          "consequence": "驿路挑战后形成多方见证，地方权势开始追逐原稿；主角意识到只等待贤主采纳无法保障证人。",
+          "nextId": "story.control.03",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "caocao",
+              "role": "使者索取案卷副本，主角可拒绝；已招募时作为旧势力联络见证。"
+            }
+          ]
+        },
+        {
+          "id": "story.control.03",
+          "title": "留一处案头",
+          "chapter": 2,
+          "era": "after_time_skip",
+          "goal": "取得柳平城，让案卷和被牵连者有可公开申辩的立足处。",
+          "obstacle": "城内权势要把争议认作扰乱秩序，顾衡希望主角以删卷换取容身。",
+          "choice": "承诺公开复核所有材料，或先划定保护证人的审理次序；都须赢下两阶段守将牌局。",
+          "consequence": "最终胜利后才占城；主角建立公开听证约定，旧恩不再能只靠引荐地位决定案件去留。",
+          "nextId": "story.control.04",
+          "milestone": "first_city",
+          "participants": [
+            {
+              "generalId": "lvbu",
+              "role": "跳时后的守城对手候选，胜利不等同于招募。"
+            }
+          ]
+        },
+        {
+          "id": "story.control.04",
+          "title": "恩主的席位",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "处理恩主希望门客免于出面作证的请求。",
+          "obstacle": "顾衡曾保护主角，如今以旧恩要求对门客私下了结，陈简担心自己也将获罪。",
+          "choice": "请恩主接受同一程序，或先追究自己的署名责任再传门客。",
+          "consequence": "程序继续且证人不被交出；公开先后改变恩主的回应，但不改变主角须亲自承担执规代价的事实。",
+          "nextId": "story.control.05",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.05",
+          "title": "两份真文书",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "解决两地各持真实却互相冲突的承诺。",
+          "obstacle": "各方都能出示盖印文件，照单执行其中一份就会驱逐另一群无辜者。",
+          "choice": "让双方公开交叉质询，或先暂停争议处置再追溯签发责任。",
+          "consequence": "卡牌争端结算只处理对抗，文书矛盾仍由战后听证承接；主角发现有章可循还需要纠错入口。",
+          "nextId": "story.control.06",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "huatuo",
+              "role": "为被牵连者提供医疗见证，未相遇时由原创医者承接必要证言。"
+            }
+          ]
+        },
+        {
+          "id": "story.control.06",
+          "title": "荐书的背面",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "查明引荐是否正在制造新的封闭门槛。",
+          "obstacle": "有才者没有门第背书，被主角提拔的人却已开始私荐亲属，曹操的接触提出另一套用人立场。",
+          "choice": "公开接受无荐举者陈述，或先复核自己已用之人的资格。",
+          "consequence": "旧引荐网络不再是唯一入口；顾衡质问主角是否连过去获助的正当性也一并否认。",
+          "nextId": "story.control.07",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "caocao",
+              "role": "用人观念的不同立场候选，不因拒绝合作堵塞事件。"
+            }
+          ]
+        },
+        {
+          "id": "story.control.07",
+          "title": "自己的错案",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "纠正自己曾认可的一份错误证词。",
+          "obstacle": "翻案会损害新城公信，陈简愿独自担责替主角遮掩；门客等待以此反击。",
+          "choice": "由主角先说明判断失误，或先保护被误认者再召开复核。",
+          "consequence": "纠错留下正式记录，不能用换掉书吏抹去责任；后续需要让不同判断能相互审校。",
+          "nextId": "story.control.08",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.08",
+          "title": "异议有座",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "让执规者在同伴提出异议时仍可合作。",
+          "obstacle": "顾衡担心公开反对会削弱号令，陈简则要求任何改稿都保留前后见证。",
+          "choice": "由主角示范接受复议，或让持异议者与主事者共同说明裁断理由。",
+          "consequence": "完成协同剧情后永久开放双将；解锁只取决于剧情完成，不要求招募恩主、陈简或任何名将。",
+          "nextId": "story.control.09",
+          "milestone": "dual_general",
+          "participants": []
+        },
+        {
+          "id": "story.control.09",
+          "title": "例外之名",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "阻止新秩序以紧急之名再次成为少数人的特权。",
+          "obstacle": "边城以战事为由拒绝公开拘押名单，守城有功者要求主角默许。",
+          "choice": "限定紧急处置并公布复核期限，或让被拘者先获独立陈述机会。",
+          "consequence": "不计入新的经济或行政模拟；前期是否公开纠错影响此处信任，主角必须决定规则何时也能约束功臣。",
+          "nextId": "story.control.10",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.10",
+          "title": "胜者的案卷",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "使战胜地区的案件同样能够被审视。",
+          "obstacle": "强邻愿止争却要求销毁己方旧卷，主角麾下也有人担心报复性清算。",
+          "choice": "先公开己方相关记录，或建立双方见证再分别追责。",
+          "consequence": "同盟与追责不能直接转移城池；后续仍须通过守将牌局，留下公正与威权相互冲突的公开问题。",
+          "nextId": "story.control.11",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.11",
+          "title": "接得住的责任",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "让后继队伍能承接未完的任务与责任。",
+          "obstacle": "先到者主张胜负由首发独享，后来者拒绝替别人的失误承担名声。",
+          "choice": "明确记录每一段承接，或由主角先承认所有阶段均由共同约定负责。",
+          "consequence": "完成接战剧情后永久开放车轮；名册规模与后备人数不影响解锁，替补合法性由未来战斗规则另判。",
+          "nextId": "story.control.12",
+          "milestone": "relay_battle",
+          "participants": []
+        },
+        {
+          "id": "story.control.12",
+          "title": "旧恩与新法",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "处理顾衡一系与本方功臣同时涉入的争议。",
+          "obstacle": "双方都援引主角早年的承诺要求例外，陈简发现原始伪令案仍有未公开一页。",
+          "choice": "公开完整案卷并接受自身质询，或先保护关联者再让双方共同选见证。",
+          "consequence": "早年保稿或救人的选择以材料或证言回响；关系变化不剥夺任何已招募人物，主角承诺把自己也写进约束之内。",
+          "nextId": "story.control.13",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.13",
+          "title": "立约之前",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "让各地承认一种允许纠错的共同秩序。",
+          "obstacle": "同盟愿签约但保留自治声称，不接受一句诏令便移交城池。",
+          "choice": "先处理未决申诉，或先定共同规则再逐地公开邀战。",
+          "consequence": "每座目标城仍需对应卡牌取得记录；各地争议形成尾声材料，完成24城控制后才可挑战终局。",
+          "nextId": "story.control.14",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.control.14",
+          "title": "笔不能代剑",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "通过终局牌局确立统一，并承认程序不能伪造胜利。",
+          "obstacle": "最终对手提出只要获胜便可重写事实，顾衡要求胜后优先恢复旧人地位。",
+          "choice": "以公平申诉、统一法令或共同盟约说明目标；不得靠文书直接跳过牌局。",
+          "consequence": "终局胜利与24城合法记录齐备才统一；主角随后必须处理功臣和自己，而非只审败者。",
+          "nextId": "story.control.15",
+          "milestone": "unification",
+          "participants": []
+        },
+        {
+          "id": "story.control.15",
+          "title": "最后一个署名",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "回答最初的署名是否意味着权力也须承担责任。",
+          "obstacle": "旧恩人盼望豁免，陈简递来需要主角本人回应的申诉。",
+          "choice": "选择仁政、霸业或盟约取向，同时说明谁有权对主角的决定提出异议。",
+          "consequence": "尾声分别呈现公开复核、统一法令或共议机制，保留最初被牵连者对新秩序的亲历评判。",
+          "nextId": null,
+          "milestone": "epilogue",
+          "participants": []
+        }
+      ],
+      "endings": [
+        {
+          "tone": "benevolence",
+          "text": "陈简将最初误列者的复核结果送到公开案头，顾衡也不能只凭旧恩免于陈述。主角最后一个署名是对自身失误的回应，而非凌驾所有材料的批示。"
+        },
+        {
+          "tone": "hegemony",
+          "text": "统一法令确立相同的问责入口，功臣与主角的署名都留在可追索的案卷中。顾衡看见旧门客无法仅凭引荐获免，陈简则追问谁有权启动对胜者的复核。"
+        },
+        {
+          "tone": "compact",
+          "text": "各地共同推举见证保留异议与复议，原稿不再只掌握在主角手中。顾衡与被牵连者在同一张案头留下不同意见，新秩序容得下他们继续争辩。"
+        }
+      ]
+    },
+    {
+      "id": "story.tank",
+      "origin": "tank",
+      "title": "求安身，止流离",
+      "premise": "带失所乡民寻找落脚处，主角从借住求助转向让各地都承担不再驱逐他人的责任。",
+      "resolution": "统一后承认返乡、留居与后来者的不同归处，检验安居承诺是否能离开主角个人而持续。",
+      "beats": [
+        {
+          "id": "story.tank.01",
+          "title": "带谁上路",
+          "chapter": 0,
+          "era": "opening_184",
+          "goal": "带故乡失守后的乡民离开险地，不让同行者再次被抛下。",
+          "obstacle": "陶婶要等失散亲人，青年周禾主张先让能走的人离开，追兵已到村口。",
+          "choice": "先护送行动不便者，或先打通撤离路线再返回接人；都需完成教学牌局。",
+          "consequence": "两路分别留下护送与寻回的经历，同行者尚未有落脚处；主角承担继续寻找接纳地的承诺。",
+          "nextId": "story.tank.02",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.02",
+          "title": "借住的期限",
+          "chapter": 1,
+          "era": "after_time_skip",
+          "goal": "找到不会因一纸通知再次驱逐乡民的地方。",
+          "obstacle": "章间跳时后数次借住均被收回，华佗救治的陌生旅人也被拒绝入队，柳平城外只准暂留。",
+          "choice": "让新遇旅人同住，或先安排独立落脚再共同协商；自由决定是否寻访华佗。",
+          "consequence": "驿路牌局打通通行，医疗修习仍为可选共享内容；地方反复变更承诺，主角决定不再依赖临时庇护。",
+          "nextId": "story.tank.03",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "huatuo",
+              "role": "救治后来旅人，修习和招募为可选共享入口，不强制加入队伍。"
+            }
+          ]
+        },
+        {
+          "id": "story.tank.03",
+          "title": "留下的资格",
+          "chapter": 2,
+          "era": "after_time_skip",
+          "goal": "夺取柳平城，为同行乡民取得可守的安身处。",
+          "obstacle": "守城者要求留下少数人作为交换，周禾认为只要本乡人能进城就值得接受。",
+          "choice": "公开承诺拒绝以他人换容身，或先保全被扣者再说明所有人如何留下；都须打赢两阶段牌局。",
+          "consequence": "最终胜利才改变归属；乡民进城后，陶婶询问城门能否也向下一批无家者开放。",
+          "nextId": "story.tank.04",
+          "milestone": "first_city",
+          "participants": [
+            {
+              "generalId": "lvbu",
+              "role": "跳时后的首城守将候选，归属仍以两阶段卡牌胜利判断。"
+            }
+          ]
+        },
+        {
+          "id": "story.tank.04",
+          "title": "城门外的人",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "决定安身承诺是否也适用于后来的人。",
+          "obstacle": "新来者与故乡人争执，周禾担心开放城门会让最初同行者再无发言权；赵云质疑先来是否就能排他。",
+          "choice": "让两方共同说明经历，或由主角先保障最初约定再公开新接纳的原则。",
+          "consequence": "不引入人口容量或粮草库存；争执以任务与对话状态记录，最初同行者开始要求明确谁能代表他们。",
+          "nextId": "story.tank.05",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "zhaoyun",
+              "role": "质疑先来者排他，未相遇时由后来旅人提出相同问题。"
+            }
+          ]
+        },
+        {
+          "id": "story.tank.05",
+          "title": "有人还在路上",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "追寻被留在旧落脚点的一队失散者。",
+          "obstacle": "熟悉路径的向导曾出卖过乡民，陶婶的亲人可能就在那一队，周禾要求先追究再救援。",
+          "choice": "先接受向导带路再作证追责，或先另寻见证后通过驿道挑战救人。",
+          "consequence": "先后顺序影响陶婶与向导的评价，失散者获救不会自动成为招募奖励；主角发现安居也需要对未到者负责。",
+          "nextId": "story.tank.06",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.06",
+          "title": "守城人的承诺",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "让边城的临时接纳不因势力变化作废。",
+          "obstacle": "张辽所在的边地队伍将交接防线，原先的通行承诺无人愿认，乡民再次面临搬离。",
+          "choice": "要求新旧双方共同说明交接，或先通过守将挑战保障通路再举行见证。",
+          "consequence": "领地仍只由牌局改变；先前借住时留下的记录成为对照，主角开始把庇护理解为不能任意转嫁的责任。",
+          "nextId": "story.tank.07",
+          "milestone": null,
+          "participants": [
+            {
+              "generalId": "zhangliao",
+              "role": "边地交接的对手或见证，按是否已招募改用原部属承接。"
+            }
+          ]
+        },
+        {
+          "id": "story.tank.07",
+          "title": "故乡之外",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "处理故乡重建机会与现有同行者去留的分歧。",
+          "obstacle": "一部分乡民想返乡，周禾要求所有人一起走，后来加入者却无故乡可回。",
+          "choice": "保障想返乡者自由离开队伍的生活安排，或先共同回访再分别决定落脚。",
+          "consequence": "仅平民剧情去留变化，永久武将名册不变；主角不再以所有人必须同住来证明最初承诺。",
+          "nextId": "story.tank.08",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.08",
+          "title": "同住不同路",
+          "chapter": 3,
+          "era": "later_campaign",
+          "goal": "让不同来处的人能在分歧中共同守护城门。",
+          "obstacle": "故乡人与后来者彼此不愿受对方安排，陶婶要求主角承认自己也无法替所有人决定。",
+          "choice": "由主角先交出独断权，或让两方共同确定协作与复核方式。",
+          "consequence": "完成协同剧情后永久开放双将；不要求特定人物或名册数量，生活分歧不会把已招募武将从名册移除。",
+          "nextId": "story.tank.09",
+          "milestone": "dual_general",
+          "participants": []
+        },
+        {
+          "id": "story.tank.09",
+          "title": "暂借天下",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "回应其他城也将流民转送柳平的做法。",
+          "obstacle": "各方把主角愿意接纳视为自己可以不再负责，周禾再次主张关闭入口。",
+          "choice": "要求各地对原先承诺作出共同见证，或先帮助被驱逐者回到可申辩的地方。",
+          "consequence": "道路与任务开放由事件推进，不计算人口或资源；主角意识到只守一个容身处不足以终止流离。",
+          "nextId": "story.tank.10",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.10",
+          "title": "再迁一次吗",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "拒绝在强邻威胁下再次放弃同行者的归处。",
+          "obstacle": "强邻给出安全撤离但永不返回的条件，陶婶害怕再战，周禾却想替所有人拒绝。",
+          "choice": "公开两条道路并保障平民自行选择，或先安排见证与护送再发起守将挑战。",
+          "consequence": "平民选择影响尾声记述，战斗人员仍由玩家自由编队；主角决定解决让各地不断被驱逐的局面。",
+          "nextId": "story.tank.11",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.11",
+          "title": "有人接你回家",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "让不同批同伴相信后继者会承接归来的路。",
+          "obstacle": "首发队伍担心替补接管就意味着自己被遗弃，后来者不愿永远只做援手。",
+          "choice": "由主角公开每批都享有回归承诺，或让旧人与新人互为接应见证。",
+          "consequence": "完成接战剧情后永久开放车轮；无强制后备数量，不重置存活敌方与牌堆的正式规则另由战斗实现。",
+          "nextId": "story.tank.12",
+          "milestone": "relay_battle",
+          "participants": []
+        },
+        {
+          "id": "story.tank.12",
+          "title": "不止一座城",
+          "chapter": 4,
+          "era": "later_campaign",
+          "goal": "为各地失所者建立不取决于主角亲自到场的承诺。",
+          "obstacle": "旧邻重提只认本乡人的约定，周禾发现自己当年被接纳也依靠过陌生人。",
+          "choice": "公开最初同行与后来接纳的完整记录，或先听取从未被任何城接纳者的证言。",
+          "consequence": "序章护送或回返的选择在证言中回响，主角要求所有城分别承担责任，而非把人不断推给下一城。",
+          "nextId": "story.tank.13",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.13",
+          "title": "归处相连",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "把分散的安居承诺连成可长期履行的共同秩序。",
+          "obstacle": "同盟愿互通却要求以盟书直接视作归附，部分故乡人又期待柳平享有优先地位。",
+          "choice": "先对齐各地的申辩约定，或先公开邀战再逐城重申相同承诺。",
+          "consequence": "全部24城仍须实际控制及合法卡牌取得记录，签约不能直接占城；随后才进入终局挑战。",
+          "nextId": "story.tank.14",
+          "milestone": null,
+          "participants": []
+        },
+        {
+          "id": "story.tank.14",
+          "title": "最后一次远行",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "完成终局牌局，使安居不再依赖不断迁徙和求告。",
+          "obstacle": "最终对手声称让一部分人永远迁走才可换取其余人安稳，陶婶等待主角的回答。",
+          "choice": "以普遍接纳、统一保障或各地共诺说明目标；都须通过终局卡牌胜利。",
+          "consequence": "统一只在24城记录和最终胜利齐备后成立；主角回到最初同行者身边说明谁将继续兑现承诺。",
+          "nextId": "story.tank.15",
+          "milestone": "unification",
+          "participants": []
+        },
+        {
+          "id": "story.tank.15",
+          "title": "灯火有名",
+          "chapter": 5,
+          "era": "later_campaign",
+          "goal": "回应最初同行者、返乡者和后来者各自对家的理解。",
+          "obstacle": "周禾想把先来者名字刻在城门上，陶婶提醒还有许多无名者始终没有到达。",
+          "choice": "选择仁政、霸业或盟约取向，并决定如何让不同归处都能保有发声的资格。",
+          "consequence": "尾声分别呈现接纳申诉、统一保障或城际共诺；故乡与新居都被承认，安身不再以排除下一批人为条件。",
+          "nextId": null,
+          "milestone": "epilogue",
+          "participants": []
+        }
+      ],
+      "endings": [
+        {
+          "tone": "benevolence",
+          "text": "城门为后来者保留申诉与接纳的入口，陶婶与返乡者分别点起灯。周禾让无名者先被记住，主角承认庇护的承诺不能只由最初同行者享有。"
+        },
+        {
+          "tone": "hegemony",
+          "text": "统一号令要求各城履行安居承诺，不再把无处归去者送往下一地。周禾负责将未兑现之处公开，陶婶仍能决定留居或返乡，统一没有替他们选定唯一的家。"
+        },
+        {
+          "tone": "compact",
+          "text": "各城共同见证安居与返乡的约定，任何一地都不能把责任一推了之。陶婶与新来者互留联络的灯火，主角第一次可以离开柳平而不担心承诺随自己走远。"
+        }
+      ]
+    }
+  ]
+}
