@@ -1,0 +1,33 @@
+using System.Collections.Immutable;
+using Sanguo.BattleCore.Randomness;
+
+namespace Sanguo.BattleCore.Basic;
+
+public enum BasicCardKind { Slash, Dodge, Peach }
+public enum BattlePhase { Play, Discard, Finished }
+public enum BattleActionKind { Slash, Dodge, Peach, Pass, EndPlay, Discard }
+public enum EffectKind { FinishCard, Dodge, Damage, Rescue }
+
+public sealed record BattleCard(string InstanceId, BasicCardKind Kind, string Suit, int Rank);
+public sealed record CombatantSetup(string EntityId, string ControllerId, string TeamId, int MaxHp = 4);
+public sealed record Combatant(string EntityId, string ControllerId, string TeamId, int SeatId,
+    int Hp, int MaxHp, bool Alive, ImmutableArray<BattleCard> Hand);
+public sealed record BattleAction(BattleActionKind Kind, string? CardId = null, string? TargetId = null);
+public sealed record EffectFrame(EffectKind Kind, string SourceId, string TargetId, string CardId,
+    int Amount = 0, int Cursor = 0);
+public sealed record BattleDecision(string RequestId, string ControllerId, string ActorId);
+public sealed record BattleEvent(long Sequence, string Code, string ActorId, string? TargetId = null,
+    string? CardId = null, int Amount = 0);
+public sealed record BattleState(string BattleId, string RulesetId, long StateVersion,
+    ImmutableArray<Combatant> Combatants, ImmutableArray<BattleCard> DrawPile,
+    ImmutableArray<BattleCard> Processing, ImmutableArray<BattleCard> DiscardPile,
+    ImmutableArray<string> CardInventory, RandomState Random, int TurnCursor, int TurnNumber,
+    BattlePhase Phase, int SlashesUsed, ImmutableArray<EffectFrame> Frames,
+    BattleDecision? PendingDecision, string? WinnerTeamId, ImmutableArray<BattleEvent> Events);
+
+public sealed record CombatantView(string EntityId, string TeamId, int SeatId, int Hp, int MaxHp,
+    bool Alive, int HandCount, ImmutableArray<BattleCard> VisibleHand);
+public sealed record BattleView(string BattleId, long StateVersion, BattlePhase Phase, int TurnNumber,
+    string ActiveUnitId, ImmutableArray<CombatantView> Combatants, int DrawCount,
+    ImmutableArray<BattleCard> Processing, ImmutableArray<BattleCard> DiscardPile,
+    BattleDecision? PendingDecision, ImmutableArray<BattleAction> LegalActions, string? WinnerTeamId);

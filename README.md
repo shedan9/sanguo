@@ -2,15 +2,21 @@
 
 以《三国杀Online》武将与卡牌规则为基础的三国背景策略单机游戏。玩家从平民出发，自由招募武将，通过武将卡牌战斗攻城略地，选择三种背景之一，经历各自从无名小辈到统一天下的完整故事。《三国行纪》为暂定工作名。
 
-当前阶段：M0/G0开发已启动，已建立C#工程、内容校验、固定随机流、可保存恢复的抽牌试验与Godot验证场景，三线全程故事大纲已形成制作草稿。尚未实现P0战斗，也未通过G0全部验收。实际进度见[开发进度](docs/06-开发进度.md)。
+当前阶段：M0/G0进行中，已建立C#工程、内容校验、固定随机流、可保存恢复的抽牌试验与Godot验证场景，三线全程故事大纲已形成制作草稿。已增加通用角色的杀、闪、桃基础战斗核心，可执行回合、濒死救援与终局，并在每个决策点保存恢复；完整P0与G0全部验收仍待完成。实际进度见[开发进度](docs/06-开发进度.md)。
 
 ## 开发入口
 
 工具链候选为.NET SDK 10.0.404、Godot 4.7.2 .NET。脚本优先使用项目内`.tools/`工具，不修改全局shell；新检出需自行安装对应SDK和Godot .NET。版本、下载摘要与平台验证见[工具链决策](docs/decisions/0001-toolchain.md)。
 
 ```sh
-# 规则测试、内容校验与保存恢复试验
+# 规则测试、内容校验、抽牌与基础战斗保存恢复试验
 ./scripts/check.sh
+
+# 通用角色2对2基础战斗，输出快照、日志及逐决策恢复报告
+./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-basic 42 build/basic-battle
+
+# 在另一个进程中从最后决策点继续；final.json应与连续版本逐字节一致
+./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-resume build/basic-battle/checkpoint.json build/basic-battle/resumed
 
 # 来源冻结严格检查；公开开发资料已采集，正式快照尚未冻结，预期返回1
 ./scripts/dotnet.sh run --project tools/Sanguo.ContentValidator -- content --require-frozen
@@ -35,7 +41,7 @@ python3 scripts/collect-ol-sources.py content/evidence/ol-public-20261112
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\verify-windows.ps1
 ```
 
-`Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`目前仅验证抽样与恢复，不是战斗模拟器。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。
+`Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`原入口仍验证抽样；新增`--battle-basic`使用独立合成牌组和`rules.basic-development.v1`，不加载正式OL武将或G0声明牌。Godot场景仍为抽牌探针。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。基础战斗的规则边界、快照和复现步骤见[基础战斗开发规则](docs/10-基础战斗开发规则.md)。
 
 OL公开开发资料已保存到[`content/evidence/ol-public-20261112/catalog.json`](content/evidence/ol-public-20261112/catalog.json)：六名标准武将的原画与完整技能、八组PC界面图集及坐标、官方历史战斗截图，共33份原始文件。可据此推进开发；同一客户端版本和逐步交互证据在对应还原验收前补齐，不阻塞通用战斗核心、内容工具和剧情配置。采集与校验方法见[来源登记与校验](docs/07-来源登记与校验.md)。
 
@@ -57,6 +63,7 @@ Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存�
 | [来源登记与校验](docs/07-来源登记与校验.md) | 草稿与冻结检查、证据格式、文件摘要及校验边界 |
 | [Windows验收流程](docs/08-Windows验收流程.md) | 独立设备自动检查、报告归档及人工验收 |
 | [三线故事大纲](docs/09-三线故事大纲.md) | 三套故事因果、制作数据契约、校验边界与首城细化入口 |
+| [基础战斗开发规则](docs/10-基础战斗开发规则.md) | 杀闪桃回合、显式响应帧、濒死顺序、开发快照与命令行验证 |
 
 ## 产品标准
 
