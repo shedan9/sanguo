@@ -3,21 +3,22 @@ using Sanguo.BattleCore.Randomness;
 
 namespace Sanguo.BattleCore.Basic;
 
-public enum BasicCardKind { Slash, Dodge, Peach }
+public enum BasicCardKind { Slash, Dodge, Peach, Duel, ExNihilo, Nullification }
 public enum BattlePhase { Play, Discard, Finished }
-public enum BattleActionKind { Slash, Dodge, Peach, Pass, EndPlay, Discard }
-public enum EffectKind { FinishCard, Dodge, Damage, Rescue }
+public enum BattleActionKind { Slash, Dodge, Peach, Pass, EndPlay, Discard, Duel, ExNihilo, RespondSlash, Nullify }
+public enum EffectKind { FinishCard, Dodge, Damage, Rescue, Duel, DrawCards, Nullification }
 
 public sealed record BattleCard(string InstanceId, BasicCardKind Kind, string Suit, int Rank);
 public sealed record CombatantSetup(string EntityId, string ControllerId, string TeamId, int MaxHp = 4);
 public sealed record Combatant(string EntityId, string ControllerId, string TeamId, int SeatId,
     int Hp, int MaxHp, bool Alive, ImmutableArray<BattleCard> Hand);
-public sealed record BattleAction(BattleActionKind Kind, string? CardId = null, string? TargetId = null);
+public sealed record BattleAction(BattleActionKind Kind, string? CardId = null, string? TargetId = null,
+    string? ResponseToCardId = null);
 public sealed record EffectFrame(EffectKind Kind, string SourceId, string TargetId, string CardId,
-    int Amount = 0, int Cursor = 0);
+    int Amount = 0, int Cursor = 0, string? CounteredCardId = null, int ChainDepth = 0);
 public sealed record BattleDecision(string RequestId, string ControllerId, string ActorId);
 public sealed record BattleEvent(long Sequence, string Code, string ActorId, string? TargetId = null,
-    string? CardId = null, int Amount = 0);
+    string? CardId = null, int Amount = 0, string? RelatedCardId = null);
 public sealed record BattleState(string BattleId, string RulesetId, long StateVersion,
     ImmutableArray<Combatant> Combatants, ImmutableArray<BattleCard> DrawPile,
     ImmutableArray<BattleCard> Processing, ImmutableArray<BattleCard> DiscardPile,
@@ -27,7 +28,9 @@ public sealed record BattleState(string BattleId, string RulesetId, long StateVe
 
 public sealed record CombatantView(string EntityId, string TeamId, int SeatId, int Hp, int MaxHp,
     bool Alive, int HandCount, ImmutableArray<BattleCard> VisibleHand);
+public sealed record BattleResponse(EffectKind Kind, string SourceId, string TargetId, string CardId, int ChainDepth);
 public sealed record BattleView(string BattleId, long StateVersion, BattlePhase Phase, int TurnNumber,
     string ActiveUnitId, ImmutableArray<CombatantView> Combatants, int DrawCount,
     ImmutableArray<BattleCard> Processing, ImmutableArray<BattleCard> DiscardPile,
-    BattleDecision? PendingDecision, ImmutableArray<BattleAction> LegalActions, string? WinnerTeamId);
+    BattleDecision? PendingDecision, ImmutableArray<BattleAction> LegalActions, string? WinnerTeamId,
+    BattleResponse? Response = null);

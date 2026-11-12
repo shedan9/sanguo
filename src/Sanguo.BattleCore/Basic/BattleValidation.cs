@@ -38,24 +38,7 @@ public static class BattleValidation
                 || string.IsNullOrWhiteSpace(e.ActorId))
                 throw new ArgumentException("战斗日志游标无效。");
 
-        if (!state.Frames.IsEmpty)
-        {
-            if (state.Phase != BattlePhase.Play || state.Frames.Length != 2 || state.Processing.Length != 1)
-                throw new ArgumentException("基础战斗效果栈或处理区无效。");
-            var finish = state.Frames[0];
-            var response = state.Frames[1];
-            if (finish is null || response is null || finish.Kind != EffectKind.FinishCard
-                || response.Kind is not (EffectKind.Dodge or EffectKind.Rescue)
-                || finish.SourceId != response.SourceId || finish.TargetId != response.TargetId
-                || finish.CardId != response.CardId || finish.Amount != 0 || finish.Cursor != 0
-                || state.SlashesUsed != 1 || finish.SourceId != units[state.TurnCursor].EntityId
-                || finish.SourceId == finish.TargetId || !units.Any(u => u.EntityId == finish.TargetId && u.Alive)
-                || state.Processing[0].InstanceId != finish.CardId || state.Processing[0].Kind != BasicCardKind.Slash
-                || response.Cursor < 0 || response.Cursor >= units.Count(u => u.Alive)
-                || (response.Kind == EffectKind.Dodge && (response.Amount != 0 || response.Cursor != 0))
-                || (response.Kind == EffectKind.Rescue && (response.Amount <= 0 || units.Single(u => u.EntityId == response.TargetId).Hp > 0)))
-                throw new ArgumentException("响应帧的来源、目标、支付或游标无效。");
-        }
+        if (!state.Frames.IsEmpty) ValidateFrames(state);
         else if (!state.Processing.IsEmpty)
             throw new ArgumentException("稳定决策点不能遗留无效果帧的处理牌。");
         if (units.Any(u => u.Alive && u.Hp <= 0
@@ -75,5 +58,88 @@ public static class BattleValidation
                 || (requireDecision && state.PendingDecision != BasicBattle.ExpectedDecision(state)))
                 throw new ArgumentException("回合、终局或待决策请求不一致。");
         }
+    }
+
+    private static void ValidateFrames(BattleState state)
+    {
+        var frames = state.Frames;
+        var units = state.Combatants;
+        var aliveCount = units.Count(u => u.Alive);
+        if (state.Phase != BattlePhase.Play || frames.Length < 2 || state.Processing.IsEmpty
+            || frames.Any(f => f is null || !Enum.IsDefined(f.Kind) || f.Cursor < 0 || f.ChainDepth < 0))
+            throw new ArgumentException("基础战斗效果栈或处理区无效。");
+        var root = frames[0];
+        var response = frames[^1];
+        var card = state.Processing[0];
+        if (root.Kind != EffectKind.FinishCard || root.CardId != card.InstanceId || root.Amount != 0 || root.Cursor != 0
+            || root.CounteredCardId is not null || root.ChainDepth != 0
+            || root.SourceId != units[state.TurnCursor].EntityId || !units.Any(u => u.EntityId == root.SourceId && u.Alive)
+            || !units.Any(u => u.EntityId == root.TargetId && u.Alive)
+            || card.Kind is not (BasicCardKind.Slash or BasicCardKind.Duel or BasicCardKind.ExNihilo)
+            || ((root.SourceId == root.TargetId) != (card.Kind == BasicCardKind.ExNihilo)))
+            throw new ArgumentException("使用牌收尾帧与原牌、来源或目标不一致。");
+
+        if (response.Kind == EffectKind.Nullification)
+        {
+            if (card.Kind is not (BasicCardKind.Duel or BasicCardKind.ExNihilo) || frames.Length < 3
+                || state.Processing.Length != frames.Length - 2 || response.Cursor >= aliveCount
+                || response.ChainDepth != frames.Length - 3 || response.ChainDepth > state.StateVersion
+                || response.CounteredCardId is not null || response.Amount != 0 || response.TargetId != root.TargetId)
+                throw new ArgumentException("无懈窗口、连续放弃游标或反制层数无效。");
+            var effect = frames[1];
+            if (effect.Kind != (card.Kind == BasicCardKind.Duel ? EffectKind.Duel : EffectKind.DrawCards)
+                || effect.SourceId != root.SourceId || effect.TargetId != root.TargetId || effect.CardId != root.CardId
+                || effect.Amount != (card.Kind == BasicCardKind.ExNihilo ? 2 : 0) || effect.Cursor != 0
+                || effect.CounteredCardId is not null || effect.ChainDepth != 0)
+                throw new ArgumentException("锦囊效果帧与原始使用不一致。");
+            var previousCardId = root.CardId;
+            var previousSource = root.SourceId;
+            for (var i = 2; i < frames.Length - 1; i++)
+            {
+                var counter = frames[i];
+                var payment = state.Processing[i - 1];
+                if (counter.Kind != EffectKind.FinishCard || payment.Kind != BasicCardKind.Nullification
+                    || payment.InstanceId != counter.CardId || counter.CounteredCardId != previousCardId
+                    || counter.TargetId != previousSource || !units.Any(u => u.EntityId == counter.SourceId && u.Alive)
+                    || counter.Amount != 0 || counter.Cursor != 0 || counter.ChainDepth != 0)
+                    throw new ArgumentException("反无懈链的实体支付或被反制对象无效。");
+                previousCardId = counter.CardId;
+                previousSource = counter.SourceId;
+            }
+            if (response.CardId != previousCardId || response.SourceId != previousSource)
+                throw new ArgumentException("无懈窗口未指向最后一张待反制锦囊。");
+            return;
+        }
+
+        if (frames.Length != 2 || state.Processing.Length != 1 || response.CardId != root.CardId
+            || response.CounteredCardId is not null || response.ChainDepth != 0
+            || !units.Any(u => u.EntityId == response.SourceId && u.Alive)
+            || !units.Any(u => u.EntityId == response.TargetId && u.Alive))
+            throw new ArgumentException("响应帧的实体支付、来源或目标无效。");
+        if (card.Kind == BasicCardKind.Slash)
+        {
+            if (state.SlashesUsed != 1 || response.SourceId != root.SourceId || response.TargetId != root.TargetId
+                || response.Kind is not (EffectKind.Dodge or EffectKind.Rescue))
+                throw new ArgumentException("杀的响应类型、次数或对象无效。");
+        }
+        else if (card.Kind == BasicCardKind.Duel)
+        {
+            if (response.Kind is not (EffectKind.Duel or EffectKind.Rescue)
+                || !((response.SourceId == root.SourceId && response.TargetId == root.TargetId)
+                    || (response.SourceId == root.TargetId && response.TargetId == root.SourceId)))
+                throw new ArgumentException("决斗响应或伤害双方无效。");
+        }
+        else throw new ArgumentException("摸牌锦囊不能挂起为杀、决斗或濒死响应。");
+
+        if (response.Kind == EffectKind.Rescue)
+        {
+            if (response.Amount != 1 || response.Cursor >= aliveCount || units.Single(u => u.EntityId == response.TargetId).Hp > 0)
+                throw new ArgumentException("濒死帧的伤害、救援游标或体力无效。");
+        }
+        else if (response.Amount != 0 || response.Cursor > state.StateVersion
+            || (response.Kind == EffectKind.Dodge && response.Cursor != 0)
+            || (response.Kind == EffectKind.Duel && (response.SourceId != (response.Cursor % 2 == 0 ? root.SourceId : root.TargetId)
+                || response.TargetId != (response.Cursor % 2 == 0 ? root.TargetId : root.SourceId))))
+            throw new ArgumentException("杀或决斗的响应轮次无效。");
     }
 }

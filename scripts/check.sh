@@ -11,3 +11,8 @@ python3 scripts/collect-ol-sources.py content/evidence/ol-public-20261112
 "$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-basic 42 build/basic-battle
 "$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-resume build/basic-battle/checkpoint.json build/basic-battle/resumed
 cmp build/basic-battle/final.json build/basic-battle/resumed/final.json
+"$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-tricks 42 build/trick-battle
+"$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-tricks-resume build/trick-battle/counter-chain.json build/trick-battle/resumed-counter
+cmp build/trick-battle/final.json build/trick-battle/resumed-counter/final.json
+"$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-tricks-resume build/trick-battle/duel-response.json build/trick-battle/resumed-duel
+cmp build/trick-battle/final.json build/trick-battle/resumed-duel/final.json

@@ -22,28 +22,40 @@ internal static class BasicBattleProbe
             2 => BasicCardKind.Peach,
             _ => BasicCardKind.Slash
         }, new[] { "spade", "heart", "club", "diamond" }[i % 4], i % 13 + 1)).ToArray();
-    private static readonly string ContentHash = Convert.ToHexStringLower(SHA256.HashData(
-        JsonSerializer.SerializeToUtf8Bytes(new { BasicBattle.RulesetId, Units, Cards })));
+    private static readonly BattleCard[] TrickCards = Enumerable.Range(0, 64).Select(i => new BattleCard(
+        $"tricks.test.{i:D3}", (i % 16) switch
+        {
+            0 or 1 => BasicCardKind.Dodge, 2 => BasicCardKind.Peach,
+            3 or 4 => BasicCardKind.Duel, 5 => BasicCardKind.ExNihilo,
+            6 or 7 => BasicCardKind.Nullification, _ => BasicCardKind.Slash
+        }, new[] { "spade", "heart", "club", "diamond" }[i % 4], i % 13 + 1)).ToArray();
 
     public static int Run(string[] args)
     {
-        var resume = args[0] == "--battle-resume";
+        var resume = args[0] is "--battle-resume" or "--battle-tricks-resume";
+        var tricks = args[0] is "--battle-tricks" or "--battle-tricks-resume";
         if ((!resume && (args.Length > 3 || (args.Length > 1 && !ulong.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out _))))
             || (resume && args.Length is < 2 or > 3))
         {
-            Console.Error.WriteLine("用法：--battle-basic [非负种子] [证据目录]；或 --battle-resume <checkpoint.json> [证据目录]");
+            Console.Error.WriteLine("用法：--battle-basic 或 --battle-tricks [非负种子] [证据目录]；恢复使用 --battle-resume 或 --battle-tricks-resume <快照> [证据目录]");
             return 2;
         }
         try
         {
             var seed = !resume && args.Length > 1 ? ulong.Parse(args[1], CultureInfo.InvariantCulture) : 42UL;
-            var directory = Path.GetFullPath(args.Length > 2 ? args[2] : Path.Combine("build", "basic-battle"));
+            var cards = tricks ? TrickCards : Cards;
+            var contentHash = Convert.ToHexStringLower(SHA256.HashData(
+                JsonSerializer.SerializeToUtf8Bytes(new { BasicBattle.RulesetId, Units, Cards = cards })));
+            var directory = Path.GetFullPath(args.Length > 2 ? args[2] : Path.Combine("build", tricks ? "trick-battle" : "basic-battle"));
             Directory.CreateDirectory(directory);
             var session = resume
-                ? new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(args[1]), ContentHash))
-                : BasicBattleSession.Create("battle.basic-probe", Units, Cards, ContentHash, seed);
+                ? new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(args[1]), contentHash))
+                : BasicBattleSession.Create(tricks ? "battle.trick-probe" : "battle.basic-probe", Units, cards, contentHash, seed);
             var steps = 0;
             var checkpoints = 0;
+            var maxCounterDepth = 0;
+            var counterSnapshotWritten = false;
+            var duelSnapshotWritten = false;
             var stepsByKind = new Dictionary<string, int>(StringComparer.Ordinal);
             while (session.State.Battle.PendingDecision is not null)
             {
@@ -52,8 +64,23 @@ internal static class BasicBattleProbe
                 var kind = before.Frames.IsEmpty ? before.Phase.ToString() : before.Frames[^1].Kind.ToString();
                 stepsByKind[kind] = stepsByKind.GetValueOrDefault(kind) + 1;
                 var path = Path.Combine(directory, "checkpoint.json");
-                File.WriteAllBytes(path, BasicBattleSnapshotCodec.Encode(session.State));
-                var restored = new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(path), ContentHash));
+                var bytes = BasicBattleSnapshotCodec.Encode(session.State);
+                File.WriteAllBytes(path, bytes);
+                if (!before.Frames.IsEmpty)
+                {
+                    maxCounterDepth = Math.Max(maxCounterDepth, before.Frames[^1].ChainDepth);
+                    if (!counterSnapshotWritten && before.Frames[^1].Kind == EffectKind.Nullification && before.Frames[^1].ChainDepth >= 2)
+                    {
+                        File.WriteAllBytes(Path.Combine(directory, "counter-chain.json"), bytes);
+                        counterSnapshotWritten = true;
+                    }
+                    if (!duelSnapshotWritten && before.Frames[^1].Kind == EffectKind.Duel)
+                    {
+                        File.WriteAllBytes(Path.Combine(directory, "duel-response.json"), bytes);
+                        duelSnapshotWritten = true;
+                    }
+                }
+                var restored = new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(path), contentHash));
                 var action = Choose(BasicBattle.Observe(before, before.PendingDecision!.ControllerId));
                 var decision = before.PendingDecision;
                 var command = new BattleCommand($"basic.command.{before.StateVersion}", before.StateVersion,
@@ -73,15 +100,15 @@ internal static class BasicBattleProbe
             File.WriteAllText(Path.Combine(directory, "events.json"), JsonSerializer.Serialize(state.Events, new JsonSerializerOptions { WriteIndented = true }));
             File.WriteAllText(Path.Combine(directory, "report.json"), JsonSerializer.Serialize(new
             {
-                rulesetId = state.RulesetId, contentHash = ContentHash, stateHash = finalHash,
+                rulesetId = state.RulesetId, contentHash, stateHash = finalHash,
                 stateVersion = state.StateVersion, turnNumber = state.TurnNumber, winnerTeamId = state.WinnerTeamId,
                 cardCount = state.CardInventory.Length,
-                restoredCheckpoints = checkpoints, stepsByKind, formalOlAccepted = false
+                restoredCheckpoints = checkpoints, stepsByKind, maxCounterDepth, formalOlAccepted = false
             }, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine($"BASIC_BATTLE_OK {finalHash}");
+            Console.WriteLine($"{(tricks ? "TRICK_BATTLE_OK" : "BASIC_BATTLE_OK")} {finalHash}");
             Console.WriteLine($"通用角色2对2：{state.TurnNumber}个角色回合，{state.StateVersion}条命令，胜方{state.WinnerTeamId}；本次{checkpoints}个决策点恢复与重复命令检查通过。");
             Console.WriteLine($"证据：{directory}");
-            Console.WriteLine("仅含杀、闪、桃的开发规则；OL武将、其余P0牌效与战斗界面尚未接入，M1未验收。");
+            Console.WriteLine($"{(tricks ? "六种牌含决斗、无中生有、无懈" : "三种基本牌")}的开发场景；OL武将、拆顺与战斗界面尚未接入，M1未验收。");
             return 0;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SaveException or ArgumentException or InvalidOperationException)
@@ -97,7 +124,12 @@ internal static class BasicBattleProbe
         var actor = view.Combatants.Single(u => u.EntityId == view.PendingDecision!.ActorId);
         // 决策仅使用当前控制者视图；未知牌和牌堆顺序不参与选择。
         return actions.FirstOrDefault(a => a.Kind == BattleActionKind.Dodge)
+            ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.RespondSlash)
+            ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Nullify && view.Response is { } response
+                && view.Combatants.Single(u => u.EntityId == response.SourceId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Peach && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId == actor.TeamId)
+            ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.ExNihilo)
+            ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Duel && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Slash && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Pass)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Discard)

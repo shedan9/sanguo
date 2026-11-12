@@ -3,10 +3,10 @@ using Sanguo.BattleCore.Randomness;
 
 namespace Sanguo.BattleCore.Basic;
 
-/// <summary>通用角色、单批次基础牌开发规则；尚未冻结为OL规则包。</summary>
+/// <summary>通用角色、单批次六种牌的开发规则；尚未冻结为OL规则包。</summary>
 public static class BasicBattle
 {
-    public const string RulesetId = "rules.basic-development.v1";
+    public const string RulesetId = "rules.basic-development.v2";
 
     public static BattleState Create(string battleId, IEnumerable<CombatantSetup> setup,
         IEnumerable<BattleCard> cards, ulong seed, int initialHandSize = 4)
@@ -38,10 +38,18 @@ public static class BasicBattle
         if (!state.Frames.IsEmpty)
         {
             var frame = state.Frames[^1];
-            var kind = frame.Kind == EffectKind.Dodge ? BasicCardKind.Dodge : BasicCardKind.Peach;
+            var (kind, actionKind) = frame.Kind switch
+            {
+                EffectKind.Dodge => (BasicCardKind.Dodge, BattleActionKind.Dodge),
+                EffectKind.Duel => (BasicCardKind.Slash, BattleActionKind.RespondSlash),
+                EffectKind.Nullification => (BasicCardKind.Nullification, BattleActionKind.Nullify),
+                EffectKind.Rescue => (BasicCardKind.Peach, BattleActionKind.Peach),
+                _ => throw new InvalidOperationException("当前效果帧不是可操作的响应点。")
+            };
             foreach (var card in actor.Hand.Where(c => c.Kind == kind))
-                actions.Add(new(frame.Kind == EffectKind.Dodge ? BattleActionKind.Dodge : BattleActionKind.Peach,
-                    card.InstanceId, frame.TargetId));
+                actions.Add(new(actionKind, card.InstanceId,
+                    frame.Kind is EffectKind.Nullification or EffectKind.Duel ? frame.SourceId : frame.TargetId,
+                    frame.Kind == EffectKind.Nullification ? frame.CardId : null));
             actions.Add(new(BattleActionKind.Pass));
         }
         else if (state.Phase == BattlePhase.Discard)
@@ -54,6 +62,11 @@ public static class BasicBattle
             {
                 if (card.Kind == BasicCardKind.Peach && actor.Hp < actor.MaxHp)
                     actions.Add(new(BattleActionKind.Peach, card.InstanceId, actor.EntityId));
+                if (card.Kind == BasicCardKind.ExNihilo)
+                    actions.Add(new(BattleActionKind.ExNihilo, card.InstanceId, actor.EntityId));
+                if (card.Kind == BasicCardKind.Duel)
+                    foreach (var target in state.Combatants.Where(u => u.Alive && u.EntityId != actor.EntityId))
+                        actions.Add(new(BattleActionKind.Duel, card.InstanceId, target.EntityId));
                 if (card.Kind != BasicCardKind.Slash || state.SlashesUsed != 0) continue;
                 foreach (var target in state.Combatants.Where(u => u.Alive && u.EntityId != actor.EntityId
                     && Distance(state, actor.EntityId, u.EntityId) <= 1))
@@ -71,7 +84,8 @@ public static class BasicBattle
                 u.MaxHp, u.Alive, u.Hand.Length, u.ControllerId == controllerId ? u.Hand : [])).ToImmutableArray(),
             state.DrawPile.Length, state.Processing, state.DiscardPile,
             state.PendingDecision, state.PendingDecision?.ControllerId == controllerId ? GetLegalActions(state) : [],
-            state.WinnerTeamId);
+            state.WinnerTeamId, state.Frames.IsEmpty ? null : new(state.Frames[^1].Kind,
+                state.Frames[^1].SourceId, state.Frames[^1].TargetId, state.Frames[^1].CardId, state.Frames[^1].ChainDepth));
 
     public static int Distance(BattleState state, string sourceId, string targetId)
     {
@@ -100,6 +114,28 @@ public static class BasicBattle
                 state = FinishPayment(Pay(state, actorId, action.CardId!), action.CardId!, actorId);
                 state = Log(Pop(state), "slash.dodged", actorId, action.TargetId, action.CardId);
                 break;
+            case BattleActionKind.Duel:
+            case BattleActionKind.ExNihilo:
+                state = Pay(state, actorId, action.CardId!);
+                state = Log(state, action.Kind == BattleActionKind.Duel ? "duel.used" : "exnihilo.used", actorId, action.TargetId, action.CardId);
+                state = Push(state, new(EffectKind.FinishCard, actorId, action.TargetId!, action.CardId!));
+                state = Push(state, new(action.Kind == BattleActionKind.Duel ? EffectKind.Duel : EffectKind.DrawCards,
+                    actorId, action.TargetId!, action.CardId!, Amount: action.Kind == BattleActionKind.ExNihilo ? 2 : 0));
+                state = Push(state, new(EffectKind.Nullification, actorId, action.TargetId!, action.CardId!));
+                break;
+            case BattleActionKind.RespondSlash:
+                var duel = state.Frames[^1];
+                state = FinishPayment(Pay(state, actorId, action.CardId!), action.CardId!, actorId);
+                state = Log(Pop(state), "duel.slash_responded", actorId, duel.SourceId, action.CardId, relatedCardId: duel.CardId);
+                state = Push(state, duel with { SourceId = duel.TargetId, TargetId = duel.SourceId, Cursor = checked(duel.Cursor + 1) });
+                break;
+            case BattleActionKind.Nullify:
+                var contested = state.Frames[^1];
+                state = Pay(Pop(state), actorId, action.CardId!);
+                state = Log(state, "nullification.used", actorId, contested.SourceId, action.CardId, relatedCardId: contested.CardId);
+                state = Push(state, new(EffectKind.FinishCard, actorId, contested.SourceId, action.CardId!, CounteredCardId: contested.CardId));
+                state = Push(state, new(EffectKind.Nullification, actorId, contested.TargetId, action.CardId!, ChainDepth: checked(contested.ChainDepth + 1)));
+                break;
             case BattleActionKind.Peach:
                 state = Pay(state, actorId, action.CardId!);
                 var target = Unit(state, action.TargetId!);
@@ -113,8 +149,8 @@ public static class BasicBattle
                 var frame = state.Frames[^1];
                 state = Log(state, "response.passed", actorId, frame.TargetId);
                 state = Pop(state);
-                state = Push(state, frame.Kind == EffectKind.Dodge
-                    ? frame with { Kind = EffectKind.Damage, Amount = 1 }
+                state = Push(state, frame.Kind is EffectKind.Dodge or EffectKind.Duel
+                    ? frame with { Kind = EffectKind.Damage, Amount = 1, Cursor = 0 }
                     : frame with { Cursor = frame.Cursor + 1 });
                 break;
             case BattleActionKind.EndPlay:
@@ -132,7 +168,20 @@ public static class BasicBattle
         while (!state.Frames.IsEmpty)
         {
             var frame = state.Frames[^1];
-            if (frame.Kind == EffectKind.Dodge) return WithDecision(state);
+            if (frame.Kind is EffectKind.Dodge or EffectKind.Duel) return WithDecision(state);
+            if (frame.Kind == EffectKind.Nullification)
+            {
+                if (frame.Cursor < state.Combatants.Count(u => u.Alive)) return WithDecision(state);
+                state = Pop(state);
+                var root = state.Frames[1];
+                state = Log(state, "nullification.window_closed", frame.SourceId, root.TargetId, frame.CardId, frame.ChainDepth);
+                if (frame.ChainDepth % 2 == 1)
+                {
+                    state = state with { Frames = state.Frames.RemoveAt(1) };
+                    state = Log(state, "trick.negated", frame.SourceId, root.TargetId, root.CardId);
+                }
+                continue;
+            }
             if (frame.Kind == EffectKind.Rescue)
             {
                 if (frame.Cursor < state.Combatants.Count(u => u.Alive)) return WithDecision(state);
@@ -145,7 +194,9 @@ public static class BasicBattle
             state = Pop(state);
             if (frame.Kind == EffectKind.FinishCard)
                 state = FinishPayment(state, frame.CardId, frame.SourceId);
-            else
+            else if (frame.Kind == EffectKind.DrawCards)
+                state = Draw(state, Unit(state, frame.TargetId).SeatId, frame.Amount);
+            else if (frame.Kind == EffectKind.Damage)
             {
                 var target = Unit(state, frame.TargetId);
                 target = target with { Hp = target.Hp - frame.Amount };
@@ -153,6 +204,7 @@ public static class BasicBattle
                 if (target.Hp <= 0)
                     state = Push(Log(state, "dying.started", target.EntityId), frame with { Kind = EffectKind.Rescue, Cursor = 0 });
             }
+            else throw new InvalidOperationException("遇到未实现的效果帧。");
         }
         var teams = state.Combatants.Where(u => u.Alive).Select(u => u.TeamId).Distinct(StringComparer.Ordinal).ToArray();
         if (teams.Length <= 1)
@@ -206,13 +258,16 @@ public static class BasicBattle
 
     internal static BattleDecision ExpectedDecision(BattleState state)
     {
-        var actor = state.Frames.IsEmpty ? state.Combatants[state.TurnCursor] : state.Frames[^1].Kind == EffectKind.Dodge
-            ? Unit(state, state.Frames[^1].TargetId)
-            : RescueOrder(state)[state.Frames[^1].Cursor];
+        var actor = state.Frames.IsEmpty ? state.Combatants[state.TurnCursor] : state.Frames[^1].Kind switch
+        {
+            EffectKind.Dodge or EffectKind.Duel => Unit(state, state.Frames[^1].TargetId),
+            EffectKind.Rescue or EffectKind.Nullification => ResponseOrder(state)[state.Frames[^1].Cursor],
+            _ => throw new ArgumentException("待决策效果帧类型无效。")
+        };
         return new($"{state.BattleId}.decision.{state.StateVersion}", actor.ControllerId, actor.EntityId);
     }
 
-    private static Combatant[] RescueOrder(BattleState state)
+    private static Combatant[] ResponseOrder(BattleState state)
         => Enumerable.Range(0, state.Combatants.Length).Select(i => state.Combatants[(state.TurnCursor + i) % state.Combatants.Length])
             .Where(u => u.Alive).ToArray();
     private static BattleState WithDecision(BattleState state) => state with { PendingDecision = ExpectedDecision(state) };
@@ -221,6 +276,7 @@ public static class BasicBattle
     private static Combatant Unit(BattleState state, string id) => state.Combatants.Single(u => u.EntityId == id);
     private static BattleState SetUnit(BattleState state, Combatant unit)
         => state with { Combatants = state.Combatants.SetItem(unit.SeatId, unit) };
-    private static BattleState Log(BattleState state, string code, string actor, string? target = null, string? cardId = null, int amount = 0)
-        => state with { Events = state.Events.Add(new(state.Events.Length + 1L, code, actor, target, cardId, amount)) };
+    private static BattleState Log(BattleState state, string code, string actor, string? target = null, string? cardId = null,
+        int amount = 0, string? relatedCardId = null)
+        => state with { Events = state.Events.Add(new(state.Events.Length + 1L, code, actor, target, cardId, amount, relatedCardId)) };
 }
