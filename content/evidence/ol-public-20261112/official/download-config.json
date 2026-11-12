@@ -1,0 +1,38 @@
+{
+  "ol": {
+    "mobile": [
+      {
+        "channel": "g",
+        "type": "android",
+        "version": "4.0.3"
+      },
+	  {
+        "channel": "wx",
+        "type": "android",
+        "version": "4.0.3"
+      },
+	  {
+        "channel": "taptap",
+        "type": "android",
+        "version": "3.9.0"
+      },
+	  {
+        "channel": "g",
+        "type": "ios",
+        "version": "4.0.3"
+      }
+    ],
+    "pc": [
+      {
+        "channel": "g",
+        "type": "window",
+        "version": "1.1.6"
+      },
+      {
+        "channel": "g",
+        "type": "mac",
+        "version": "1.0.9"
+      }
+    ]
+  }
+}

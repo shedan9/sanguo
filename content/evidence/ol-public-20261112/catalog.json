@@ -1,0 +1,491 @@
+{
+  "formatVersion": 1,
+  "sourceGame": "sgs_online",
+  "capturedAt": "2026-11-12T08:52:01.246337+00:00",
+  "status": "development_reference",
+  "clientVersion": null,
+  "usage": "开发参照；不随当前运行包分发，公开分发范围待确认。",
+  "files": [
+    {
+      "path": "official/hero.html",
+      "sourceUrl": "https://www.sanguosha.com/hero",
+      "kind": "general_index",
+      "sha256": "bdc9526f505ee2f5781243539bb0e3571a2fe555c7e1f3dfb1130d8d3b6ac2fe",
+      "bytes": 1335704
+    },
+    {
+      "path": "official/hero-2.html",
+      "sourceUrl": "https://www.sanguosha.com/hero/2",
+      "kind": "general",
+      "sha256": "79dd957c54bf06fa39eac916c9be2391009539d9571a1b85ffbbb3de46eed5c7",
+      "bytes": 25479
+    },
+    {
+      "path": "portraits/guanyu-200.png",
+      "sourceUrl": "https://web.sanguosha.com//220/miniGame/release/laya2/res/runtime/m/general/big/static/200.png",
+      "kind": "portrait",
+      "sha256": "d5375980e4f2f810b77168eb5ae4fd07fe75c6457d21c6735c2bef7161fe7c7b",
+      "bytes": 992959,
+      "generalId": "guanyu",
+      "dimensions": [
+        750,
+        950
+      ]
+    },
+    {
+      "path": "official/hero-5.html",
+      "sourceUrl": "https://www.sanguosha.com/hero/5",
+      "kind": "general",
+      "sha256": "c2bc9107cec5f09e1d8d736142fb0fe04eae5a03b31f803950c5b199f7c5488e",
+      "bytes": 25707
+    },
+    {
+      "path": "portraits/zhaoyun-500.png",
+      "sourceUrl": "https://web.sanguosha.com//220/miniGame/release/laya2/res/runtime/m/general/big/static/500.png",
+      "kind": "portrait",
+      "sha256": "43b18a585ec554d9857e9db821bba47bac70522033bf5a7340ef00ad5a253db7",
+      "bytes": 1090205,
+      "generalId": "zhaoyun",
+      "dimensions": [
+        750,
+        950
+      ]
+    },
+    {
+      "path": "official/hero-18.html",
+      "sourceUrl": "https://www.sanguosha.com/hero/18",
+      "kind": "general",
+      "sha256": "7974bac9fed41077a57d97886909555eff8e719ea6153a79607ef1ad56d6c12c",
+      "bytes": 25588
+    },
+    {
+      "path": "portraits/zhangliao-1800.png",
+      "sourceUrl": "https://web.sanguosha.com//220/miniGame/release/laya2/res/runtime/m/general/big/static/1800.png",
+      "kind": "portrait",
+      "sha256": "77065437eda504595c74ac9287ca0b878fb3d60f4723475edc137ccea70d0416",
+      "bytes": 1106953,
+      "generalId": "zhangliao",
+      "dimensions": [
+        750,
+        950
+      ]
+    },
+    {
+      "path": "official/hero-22.html",
+      "sourceUrl": "https://www.sanguosha.com/hero/22",
+      "kind": "general",
+      "sha256": "e4c5595ff8e487249cd9a10a74807f1bc09710ed3ee9e11f4207f11061b7b5d8",
+      "bytes": 25743
+    },
+    {
+      "path": "portraits/huatuo-2200.png",
+      "sourceUrl": "https://web.sanguosha.com//220/miniGame/release/laya2/res/runtime/m/general/big/static/2200.png",
+      "kind": "portrait",
+      "sha256": "55eb4b7dec37443f9140ac85939aa90f5b6d53b5249d3ddb563101c99193ea46",
+      "bytes": 1009908,
+      "generalId": "huatuo",
+      "dimensions": [
+        750,
+        950
+      ]
+    },
+    {
+      "path": "official/hero-15.html",
+      "sourceUrl": "https://www.sanguosha.com/hero/15",
+      "kind": "general",
+      "sha256": "279517d4223c652d615c2a0c4c0f83bdefca7292821efb20440202fd48a30e3a",
+      "bytes": 25841
+    },
+    {
+      "path": "portraits/caocao-1500.png",
+      "sourceUrl": "https://web.sanguosha.com//220/miniGame/release/laya2/res/runtime/m/general/big/static/1500.png",
+      "kind": "portrait",
+      "sha256": "81b4ff600bda937d0e1fccc2bcb3a4e2b4ce7862b7e9ecbe6f61ec3ec95ee298",
+      "bytes": 981673,
+      "generalId": "caocao",
+      "dimensions": [
+        750,
+        950
+      ]
+    },
+    {
+      "path": "official/hero-23.html",
+      "sourceUrl": "https://www.sanguosha.com/hero/23",
+      "kind": "general",
+      "sha256": "d93386a680f8687c5b2dd5b81f05f763981652242700aabe1dd9e123fc8474f2",
+      "bytes": 26157
+    },
+    {
+      "path": "portraits/lvbu-2300.png",
+      "sourceUrl": "https://web.sanguosha.com//220/miniGame/release/laya2/res/runtime/m/general/big/static/2300.png",
+      "kind": "portrait",
+      "sha256": "f2e5805a4d067b7f3dad68ccc806b7fcbbac141bc45b94cfb9144c092fb2facb",
+      "bytes": 1151170,
+      "generalId": "lvbu",
+      "dimensions": [
+        750,
+        950
+      ]
+    },
+    {
+      "path": "pc/version.json",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/version.json",
+      "kind": "resource_version_index",
+      "sha256": "7d1de49e2afaac4825f248a608852ffc6b30626a1a95f2652ddc684047fdc84e",
+      "bytes": 701443
+    },
+    {
+      "path": "pc/res/assets/baseUI/baseUI.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/baseUI/baseUI.atlas",
+      "kind": "atlas",
+      "sha256": "39e11c803a5601b1d29e4153d56148f1795dd1df6ae73462c33893fbfd724a97",
+      "bytes": 319121,
+      "sourceVersion": -1750658521
+    },
+    {
+      "path": "pc/res/assets/baseUI/baseUI.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/baseUI/baseUI.png",
+      "kind": "ui_texture",
+      "sha256": "f990c7389c308e339bb57809ceb374dadb32b4627ee4613b7a63721e1ebd2335",
+      "bytes": 12203796,
+      "sourceVersion": -111801908,
+      "dimensions": [
+        4096,
+        4096
+      ]
+    },
+    {
+      "path": "pc/res/assets/cards/normal/cards.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/cards/normal/cards.atlas",
+      "kind": "atlas",
+      "sha256": "f4ee16929bce2f4beb04020f87f8e4bdc267942a166bcda63913ace3d3630f15",
+      "bytes": 32192,
+      "sourceVersion": -812210631
+    },
+    {
+      "path": "pc/res/assets/cards/normal/cards.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/cards/normal/cards.png",
+      "kind": "ui_texture",
+      "sha256": "14e786fd774fc5a9e1de952ad6a042ec5b87220bf434bc2d8410584eae01c3df",
+      "bytes": 9160999,
+      "sourceVersion": 1910127789,
+      "dimensions": [
+        2048,
+        4096
+      ]
+    },
+    {
+      "path": "pc/res/assets/game/gameBase.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/gameBase.atlas",
+      "kind": "atlas",
+      "sha256": "a74e7b2a9d5456ec6589956b1a30ac9c496006271a2fb6b13c7082b2e067574b",
+      "bytes": 72778,
+      "sourceVersion": 1957176175
+    },
+    {
+      "path": "pc/res/assets/game/gameBase.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/gameBase.png",
+      "kind": "ui_texture",
+      "sha256": "a3f751fc57791b3746413bcecb4e704729f1a08411f6add3145f254eadf86cc2",
+      "bytes": 2917382,
+      "sourceVersion": 1417519661,
+      "dimensions": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "path": "pc/res/assets/game/seat.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/seat.atlas",
+      "kind": "atlas",
+      "sha256": "9df9a7f7299346ef9b898a645e7d4b7540828dfcfeac2e54140ed7825572c337",
+      "bytes": 141692,
+      "sourceVersion": 462010409
+    },
+    {
+      "path": "pc/res/assets/game/seat.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/seat.png",
+      "kind": "ui_texture",
+      "sha256": "2ba7a9b23a28bf6265b2dd07290be79cb8727968e9c29f8623f6eaa64c0b7374",
+      "bytes": 4464262,
+      "sourceVersion": 185467164,
+      "dimensions": [
+        4096,
+        1024
+      ]
+    },
+    {
+      "path": "pc/res/assets/game/seatbottom.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/seatbottom.atlas",
+      "kind": "atlas",
+      "sha256": "0d7d1aaafebc61b91bf0be26f2211470c08fd94c0d497520e331f1c48d64d50a",
+      "bytes": 14465,
+      "sourceVersion": 1495647598
+    },
+    {
+      "path": "pc/res/assets/game/seatbottom.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/seatbottom.png",
+      "kind": "ui_texture",
+      "sha256": "7b72cb86253b7b69e10a55797eeddd71dd0d97776b282c0a1c1e9185562a5233",
+      "bytes": 3705381,
+      "sourceVersion": -720577592,
+      "dimensions": [
+        2048,
+        4096
+      ]
+    },
+    {
+      "path": "pc/res/assets/game/seatState.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/seatState.atlas",
+      "kind": "atlas",
+      "sha256": "03ebfd8a0c28c51baa0b574ad4f161aa1551102d40c6963362bc78e00539c89a",
+      "bytes": 3999,
+      "sourceVersion": 546787737
+    },
+    {
+      "path": "pc/res/assets/game/seatState.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/seatState.png",
+      "kind": "ui_texture",
+      "sha256": "8d14951e27058ff534466438c5f7a92df2e1956543c8eb66d78543d2e72488ba",
+      "bytes": 112108,
+      "sourceVersion": 1143615594,
+      "dimensions": [
+        256,
+        512
+      ]
+    },
+    {
+      "path": "pc/res/assets/game/selfseat.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/selfseat.atlas",
+      "kind": "atlas",
+      "sha256": "74e55d23c48fd6eff1ba3161f207c1ed208f9f20630ffaf24196fac6800beb5b",
+      "bytes": 42781,
+      "sourceVersion": -1725329312
+    },
+    {
+      "path": "pc/res/assets/game/selfseat.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/game/selfseat.png",
+      "kind": "ui_texture",
+      "sha256": "c13692f3bce754d84cdd4fda8427c6b1b67706d24ff5a137e45fd4251e07dfd9",
+      "bytes": 1906280,
+      "sourceVersion": 1371821986,
+      "dimensions": [
+        1024,
+        2048
+      ]
+    },
+    {
+      "path": "pc/res/assets/table/table.atlas",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/table/table.atlas",
+      "kind": "atlas",
+      "sha256": "7e324d253152e57517fd35eed3eef0eb3d231a81decf95f5a655020c6b9ff6c7",
+      "bytes": 29518,
+      "sourceVersion": -1458422027
+    },
+    {
+      "path": "pc/res/assets/table/table.png",
+      "sourceUrl": "https://web.sanguosha.com/220/h5_2/res/assets/table/table.png",
+      "kind": "ui_texture",
+      "sha256": "4997455c2c0ac2eab4e428ca320c61a31ab5f8af1ccde36aa13ab35ced7747e6",
+      "bytes": 3898679,
+      "sourceVersion": 1489711180,
+      "dimensions": [
+        2048,
+        2048
+      ]
+    },
+    {
+      "path": "official/basic-card-guide.html",
+      "sourceUrl": "https://www.sanguosha.com/news/20180906_4914_1519",
+      "kind": "historical_guide",
+      "sha256": "28f36a10e727902ed7f4792dc0607251935afebe66eb48440c7cb98a05a84610",
+      "bytes": 47824
+    },
+    {
+      "path": "reference/battle-20180906.jpg",
+      "sourceUrl": "https://www.sanguosha.com/uploads/201809/5b910d22a9912.jpg",
+      "kind": "historical_battle_screenshot",
+      "sha256": "7e11402a5420d2f446f6bc97bbd2a0878a82c55bf1e4ec4c9e3dbbf9fcdb0e3f",
+      "bytes": 207774,
+      "publishedAt": "2018-09-06"
+    },
+    {
+      "path": "official/download-config.json",
+      "sourceUrl": "https://oldownload.sanguosha.com/download/config.json",
+      "kind": "launcher_version_config",
+      "sha256": "7f075fe77b537b2be952b7b47123995b4799b9de74e5bfbec4ba08c2f66a4c26",
+      "bytes": 651
+    }
+  ],
+  "generals": [
+    {
+      "generalId": "guanyu",
+      "displayName": "关羽",
+      "officialGeneralId": 2,
+      "variant": "标准",
+      "resourceId": "200",
+      "maxHp": 4,
+      "faction": "蜀",
+      "gender": null,
+      "skills": [
+        {
+          "name": "武圣",
+          "text": "你可以将一张红色牌当【杀】使用或打出。"
+        }
+      ],
+      "pagePath": "official/hero-2.html",
+      "portraitPath": "portraits/guanyu-200.png",
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "zhaoyun",
+      "displayName": "赵云",
+      "officialGeneralId": 5,
+      "variant": "标准",
+      "resourceId": "500",
+      "maxHp": 4,
+      "faction": "蜀",
+      "gender": null,
+      "skills": [
+        {
+          "name": "龙胆",
+          "text": "你可以将一张【杀】当【闪】、【闪】当【杀】使用或打出。"
+        }
+      ],
+      "pagePath": "official/hero-5.html",
+      "portraitPath": "portraits/zhaoyun-500.png",
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "zhangliao",
+      "displayName": "张辽",
+      "officialGeneralId": 18,
+      "variant": "标准",
+      "resourceId": "1800",
+      "maxHp": 4,
+      "faction": "魏",
+      "gender": null,
+      "skills": [
+        {
+          "name": "突袭",
+          "text": "摸牌阶段，你可以改为获得至多两名角色的各一张手牌。"
+        }
+      ],
+      "pagePath": "official/hero-18.html",
+      "portraitPath": "portraits/zhangliao-1800.png",
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "huatuo",
+      "displayName": "华佗",
+      "officialGeneralId": 22,
+      "variant": "标准",
+      "resourceId": "2200",
+      "maxHp": 3,
+      "faction": "群",
+      "gender": null,
+      "skills": [
+        {
+          "name": "急救",
+          "text": "在你的回合外，你可以将一张红色牌当【桃】使用。"
+        },
+        {
+          "name": "青囊",
+          "text": "出牌阶段限一次，你可以弃置一张手牌令一名角色回复1点体力。"
+        }
+      ],
+      "pagePath": "official/hero-22.html",
+      "portraitPath": "portraits/huatuo-2200.png",
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "caocao",
+      "displayName": "曹操",
+      "officialGeneralId": 15,
+      "variant": "标准",
+      "resourceId": "1500",
+      "maxHp": 4,
+      "faction": "魏",
+      "gender": null,
+      "skills": [
+        {
+          "name": "奸雄",
+          "text": "当你受到伤害后，你可以获得造成此伤害的牌。"
+        },
+        {
+          "name": "护驾",
+          "text": "主公技，其他魏势力角色可以在你需要时代替你使用或打出【闪】（视为由你使用或打出）。"
+        }
+      ],
+      "pagePath": "official/hero-15.html",
+      "portraitPath": "portraits/caocao-1500.png",
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "lvbu",
+      "displayName": "吕布",
+      "officialGeneralId": 23,
+      "variant": "标准",
+      "resourceId": "2300",
+      "maxHp": 4,
+      "faction": "群",
+      "gender": null,
+      "skills": [
+        {
+          "name": "无双",
+          "text": "锁定技，你使用的【杀】需两张【闪】才能抵消；与你【决斗】的角色每次需打出两张【杀】。"
+        }
+      ],
+      "pagePath": "official/hero-23.html",
+      "portraitPath": "portraits/lvbu-2300.png",
+      "includedInRuntime": false
+    }
+  ],
+  "atlases": [
+    {
+      "atlasPath": "pc/res/assets/baseUI/baseUI.atlas",
+      "imagePath": "pc/res/assets/baseUI/baseUI.png",
+      "frameCount": 1109
+    },
+    {
+      "atlasPath": "pc/res/assets/cards/normal/cards.atlas",
+      "imagePath": "pc/res/assets/cards/normal/cards.png",
+      "frameCount": 111
+    },
+    {
+      "atlasPath": "pc/res/assets/game/gameBase.atlas",
+      "imagePath": "pc/res/assets/game/gameBase.png",
+      "frameCount": 252
+    },
+    {
+      "atlasPath": "pc/res/assets/game/seat.atlas",
+      "imagePath": "pc/res/assets/game/seat.png",
+      "frameCount": 495
+    },
+    {
+      "atlasPath": "pc/res/assets/game/seatbottom.atlas",
+      "imagePath": "pc/res/assets/game/seatbottom.png",
+      "frameCount": 49
+    },
+    {
+      "atlasPath": "pc/res/assets/game/seatState.atlas",
+      "imagePath": "pc/res/assets/game/seatState.png",
+      "frameCount": 14
+    },
+    {
+      "atlasPath": "pc/res/assets/game/selfseat.atlas",
+      "imagePath": "pc/res/assets/game/selfseat.png",
+      "frameCount": 148
+    },
+    {
+      "atlasPath": "pc/res/assets/table/table.atlas",
+      "imagePath": "pc/res/assets/table/table.png",
+      "frameCount": 101
+    }
+  ],
+  "limitations": [
+    "官网与PC静态资源未证明属于同一客户端版本。",
+    "历史战斗截图仅作布局参考，不是当前快照。",
+    "缺少十类操作状态的同版本截图与逐步录像。"
+  ]
+}

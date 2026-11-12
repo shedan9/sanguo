@@ -7,3 +7,6 @@
 *.wav binary
 *.zip binary
 *.tpz binary
+# 来源原件保留服务器字节，避免CRLF规范化破坏登记摘要。
+content/evidence/ol-public-*/** binary
+content/evidence/ol-public-*/catalog.json text eol=lf diff merge

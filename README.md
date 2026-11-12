@@ -12,8 +12,11 @@
 # 规则测试、内容校验与保存恢复试验
 ./scripts/check.sh
 
-# 来源冻结严格检查；当前清单仍待采集，预期返回1并列出待完成项
+# 来源冻结严格检查；公开开发资料已采集，正式快照尚未冻结，预期返回1
 ./scripts/dotnet.sh run --project tools/Sanguo.ContentValidator -- content --require-frozen
+
+# 离线核对OL公开开发素材包（立绘、技能与PC UI图集）
+python3 scripts/collect-ol-sources.py content/evidence/ol-public-20261112
 
 # 编译Godot验证场景
 ./scripts/dotnet.sh restore client/Sanguo.Client.csproj --locked-mode
@@ -33,6 +36,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\verify-windows.ps1
 ```
 
 `Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`目前仅验证抽样与恢复，不是战斗模拟器。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。
+
+OL公开开发资料已保存到[`content/evidence/ol-public-20261112/catalog.json`](content/evidence/ol-public-20261112/catalog.json)：六名标准武将的原画与完整技能、八组PC界面图集及坐标、官方历史战斗截图，共33份原始文件。可据此推进开发；同一客户端版本和逐步交互证据在对应还原验收前补齐，不阻塞通用战斗核心、内容工具和剧情配置。采集与校验方法见[来源登记与校验](docs/07-来源登记与校验.md)。
 
 Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存恢复、命令去重和损坏档备份回退，并将报告与日志写入独立临时目录。人工窗口及离线验证仍需记录；当前尚无Windows运行证据，不能因此关闭G0。详细步骤见[Windows验收流程](docs/08-Windows验收流程.md)。
 
