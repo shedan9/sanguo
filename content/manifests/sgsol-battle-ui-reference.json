@@ -3,6 +3,7 @@
   "referenceId": "sgsol.pc.pending",
   "sourceGame": "sgs_online",
   "status": "pending_capture",
+  "sourceSnapshotId": null,
   "clientVersion": null,
   "theme": null,
   "resolution": {

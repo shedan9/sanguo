@@ -12,6 +12,9 @@
 # 规则测试、内容校验与保存恢复试验
 ./scripts/check.sh
 
+# 来源冻结严格检查；当前清单仍待采集，预期返回1并列出待完成项
+./scripts/dotnet.sh run --project tools/Sanguo.ContentValidator -- content --require-frozen
+
 # 编译Godot验证场景
 ./scripts/dotnet.sh restore client/Sanguo.Client.csproj --locked-mode
 ./scripts/dotnet.sh build client/Sanguo.Client.csproj --no-restore
@@ -39,6 +42,7 @@
 | [战斗规则与验收附录](docs/04-战斗规则与验收附录.md) | OL来源契约、战斗与车轮细则、百人首发及三套主角故事验收 |
 | [战斗界面与交互还原规范](docs/05-战斗界面与交互还原规范.md) | OL对局UI、操作流程、队伍适配、分阶段配音与原型验收 |
 | [开发进度](docs/06-开发进度.md) | 已实现范围、运行证据、未通过的关口与下一步 |
+| [来源登记与校验](docs/07-来源登记与校验.md) | 草稿与冻结检查、证据格式、文件摘要及校验边界 |
 
 ## 产品标准
 
