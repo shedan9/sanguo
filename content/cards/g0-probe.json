@@ -1,0 +1,105 @@
+{
+  "formatVersion": 1,
+  "packageId": "probe.cards.v1",
+  "scope": "g0-probe",
+  "cards": [
+    {
+      "id": "probe.slash",
+      "name": "杀",
+      "effect": "slash",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.jink",
+      "name": "闪",
+      "effect": "jink",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.peach",
+      "name": "桃",
+      "effect": "peach",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.duel",
+      "name": "决斗",
+      "effect": "duel",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.dismantlement",
+      "name": "过河拆桥",
+      "effect": "dismantlement",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.snatch",
+      "name": "顺手牵羊",
+      "effect": "snatch",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.ex_nihilo",
+      "name": "无中生有",
+      "effect": "ex_nihilo",
+      "implementation": "declared-only"
+    },
+    {
+      "id": "probe.nullification",
+      "name": "无懈可击",
+      "effect": "nullification",
+      "implementation": "declared-only"
+    }
+  ],
+  "deck": [
+    {
+      "instanceId": "probe.card.001",
+      "definitionId": "probe.slash",
+      "suit": "spade",
+      "rank": 1
+    },
+    {
+      "instanceId": "probe.card.002",
+      "definitionId": "probe.jink",
+      "suit": "heart",
+      "rank": 2
+    },
+    {
+      "instanceId": "probe.card.003",
+      "definitionId": "probe.peach",
+      "suit": "club",
+      "rank": 3
+    },
+    {
+      "instanceId": "probe.card.004",
+      "definitionId": "probe.duel",
+      "suit": "diamond",
+      "rank": 4
+    },
+    {
+      "instanceId": "probe.card.005",
+      "definitionId": "probe.dismantlement",
+      "suit": "spade",
+      "rank": 5
+    },
+    {
+      "instanceId": "probe.card.006",
+      "definitionId": "probe.snatch",
+      "suit": "heart",
+      "rank": 6
+    },
+    {
+      "instanceId": "probe.card.007",
+      "definitionId": "probe.ex_nihilo",
+      "suit": "club",
+      "rank": 7
+    },
+    {
+      "instanceId": "probe.card.008",
+      "definitionId": "probe.nullification",
+      "suit": "diamond",
+      "rank": 8
+    }
+  ]
+}

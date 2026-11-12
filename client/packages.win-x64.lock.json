@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "Godot.SourceGenerators": {
+        "type": "Direct",
+        "requested": "[4.7.2, )",
+        "resolved": "4.7.2",
+        "contentHash": "PeYESFlRxlmeClrPhlMINhVvt2HiKnx2Ux/FYA10rimDevHljji3/jmRZOMo9XDNQsZzPH4uQmDyPgQgzTFvAg=="
+      },
+      "GodotSharp": {
+        "type": "Direct",
+        "requested": "[4.7.2, )",
+        "resolved": "4.7.2",
+        "contentHash": "EPvfayB7b7MrBNdASvy86jRS5AbM9dprkVivcRD80g+ngn2M8KAIrBQH4NhyQL+pwxni0xVnuqhD9AFpZeNQpw=="
+      },
+      "sanguo.application": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.BattleCore": "[1.0.0, )",
+          "Sanguo.CampaignCore": "[1.0.0, )"
+        }
+      },
+      "sanguo.battlecore": {
+        "type": "Project"
+      },
+      "sanguo.campaigncore": {
+        "type": "Project"
+      },
+      "sanguo.content": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.BattleCore": "[1.0.0, )"
+        }
+      },
+      "sanguo.infrastructure": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.Application": "[1.0.0, )"
+        }
+      }
+    },
+    "net10.0/win-x64": {}
+  }
+}

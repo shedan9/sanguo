@@ -1,0 +1,91 @@
+{
+  "formatVersion": 1,
+  "referenceId": "sgsol.pc.pending",
+  "sourceGame": "sgs_online",
+  "status": "pending_capture",
+  "clientVersion": null,
+  "theme": null,
+  "resolution": {
+    "width": 1920,
+    "height": 1080
+  },
+  "scale": null,
+  "capturedAt": null,
+  "screenshots": [],
+  "recordings": [],
+  "interactionStates": [
+    {
+      "id": "idle",
+      "name": "空闲桌面",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "play",
+      "name": "出牌阶段",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "select",
+      "name": "选牌与目标",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "slash-jink",
+      "name": "杀闪响应",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "duel",
+      "name": "决斗交替响应",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "nullification",
+      "name": "连续无懈",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "skill",
+      "name": "技能发动与取消",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "choose-zone",
+      "name": "目标区域选牌",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "discard",
+      "name": "弃牌",
+      "status": "pending_capture",
+      "evidence": []
+    },
+    {
+      "id": "dying",
+      "name": "濒死救援",
+      "status": "pending_capture",
+      "evidence": []
+    }
+  ],
+  "adaptations": [
+    {
+      "id": "offline-no-timeout",
+      "description": "离线单机响应不限时，不自动放弃。",
+      "status": "specified"
+    },
+    {
+      "id": "team-control",
+      "description": "按当前请求展示友军手牌，视角映射不改变座次。",
+      "status": "awaiting_reference_mapping"
+    }
+  ],
+  "evidence": []
+}

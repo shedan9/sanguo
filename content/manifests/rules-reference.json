@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "sourceGame": "sgs_online",
+  "status": "pending_verification",
+  "sourceSnapshotId": null,
+  "clientVersion": null,
+  "frozenAt": null,
+  "sourceUrl": "https://www.sanguosha.com/hero",
+  "deckList": [],
+  "rulings": [],
+  "evidence": [],
+  "blockingItems": [
+    "取得同一OL PC客户端的规则与牌组快照",
+    "登记洗牌、空牌堆、距离及濒死裁定",
+    "填入实际文件摘要后人工核验冻结"
+  ],
+  "runtimePackage": "probe.draw.v1",
+  "note": "G0牌组是技术试验数据，八种效果均未实现，不能作为OL规则包使用。"
+}

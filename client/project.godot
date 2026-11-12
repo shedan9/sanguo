@@ -1,0 +1,24 @@
+; G0工具链试验，战斗桌面须在OL参照冻结后另行实现。
+config_version=5
+
+[application]
+config/name="三国行纪 · G0试验"
+run/main_scene="res://scenes/Probe.tscn"
+config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/size/min_width=960
+window/size/min_height=600
+window/stretch/mode="canvas_items"
+
+[dotnet]
+project/assembly_name="Sanguo.Client"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.09, 0.106, 0.102, 1)

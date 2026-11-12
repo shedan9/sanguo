@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>14.0</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <SanguoLockProfile Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</SanguoLockProfile>
+    <SanguoLockProfile Condition="'$(SanguoLockProfile)' == '' and '$(RuntimeIdentifiers)' != ''">$(RuntimeIdentifiers)</SanguoLockProfile>
+    <NuGetLockFilePath Condition="'$(SanguoLockProfile)' != ''">$(MSBuildProjectDirectory)/packages.$(SanguoLockProfile).lock.json</NuGetLockFilePath>
+  </PropertyGroup>
+</Project>

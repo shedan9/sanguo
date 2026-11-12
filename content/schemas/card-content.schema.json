@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "G0试验牌内容格式，不代表OL牌效支持",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "packageId", "scope", "cards", "deck"],
+  "properties": {
+    "formatVersion": {"const": 1},
+    "packageId": {"type": "string", "minLength": 1},
+    "scope": {"const": "g0-probe"},
+    "cards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "effect", "implementation"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "effect": {"type": "string", "minLength": 1},
+          "implementation": {"const": "declared-only"}
+        }
+      }
+    },
+    "deck": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["instanceId", "definitionId", "suit", "rank"],
+        "properties": {
+          "instanceId": {"type": "string", "minLength": 1},
+          "definitionId": {"type": "string", "minLength": 1},
+          "suit": {"enum": ["spade", "heart", "club", "diamond"]},
+          "rank": {"type": "integer", "minimum": 1, "maximum": 13}
+        }
+      }
+    }
+  }
+}

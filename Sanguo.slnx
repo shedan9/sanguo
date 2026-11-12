@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sanguo.Application/Sanguo.Application.csproj" />
+    <Project Path="src/Sanguo.BattleCore/Sanguo.BattleCore.csproj" />
+    <Project Path="src/Sanguo.CampaignCore/Sanguo.CampaignCore.csproj" />
+    <Project Path="src/Sanguo.Content/Sanguo.Content.csproj" />
+    <Project Path="src/Sanguo.Infrastructure/Sanguo.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sanguo.Integration.Tests/Sanguo.Integration.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Sanguo.ContentValidator/Sanguo.ContentValidator.csproj" />
+    <Project Path="tools/Sanguo.Simulator/Sanguo.Simulator.csproj" />
+  </Folder>
+</Solution>

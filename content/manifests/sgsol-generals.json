@@ -1,0 +1,86 @@
+{
+  "formatVersion": 1,
+  "sourceGame": "sgs_online",
+  "status": "pending_verification",
+  "sourceSnapshotId": null,
+  "generals": [
+    {
+      "generalId": "guanyu",
+      "displayName": "关羽",
+      "status": "pending_verification",
+      "variantId": null,
+      "portraitId": null,
+      "skinId": null,
+      "baseAttributes": null,
+      "completeSkills": [],
+      "evidence": [],
+      "ruleCaseIds": [],
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "zhaoyun",
+      "displayName": "赵云",
+      "status": "pending_verification",
+      "variantId": null,
+      "portraitId": null,
+      "skinId": null,
+      "baseAttributes": null,
+      "completeSkills": [],
+      "evidence": [],
+      "ruleCaseIds": [],
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "zhangliao",
+      "displayName": "张辽",
+      "status": "pending_verification",
+      "variantId": null,
+      "portraitId": null,
+      "skinId": null,
+      "baseAttributes": null,
+      "completeSkills": [],
+      "evidence": [],
+      "ruleCaseIds": [],
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "huatuo",
+      "displayName": "华佗",
+      "status": "pending_verification",
+      "variantId": null,
+      "portraitId": null,
+      "skinId": null,
+      "baseAttributes": null,
+      "completeSkills": [],
+      "evidence": [],
+      "ruleCaseIds": [],
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "caocao",
+      "displayName": "曹操",
+      "status": "pending_verification",
+      "variantId": null,
+      "portraitId": null,
+      "skinId": null,
+      "baseAttributes": null,
+      "completeSkills": [],
+      "evidence": [],
+      "ruleCaseIds": [],
+      "includedInRuntime": false
+    },
+    {
+      "generalId": "lvbu",
+      "displayName": "吕布",
+      "status": "pending_verification",
+      "variantId": null,
+      "portraitId": null,
+      "skinId": null,
+      "baseAttributes": null,
+      "completeSkills": [],
+      "evidence": [],
+      "ruleCaseIds": [],
+      "includedInRuntime": false
+    }
+  ]
+}

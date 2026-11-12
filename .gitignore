@@ -1,1 +1,11 @@
 .DS_Store
+**/bin/
+**/obj/
+**/.godot/
+.tools/
+.nuget/
+build/
+TestResults/
+*.user
+*.suo
+*.csproj.old

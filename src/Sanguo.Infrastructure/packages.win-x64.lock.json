@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "sanguo.application": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.BattleCore": "[1.0.0, )",
+          "Sanguo.CampaignCore": "[1.0.0, )"
+        }
+      },
+      "sanguo.battlecore": {
+        "type": "Project"
+      },
+      "sanguo.campaigncore": {
+        "type": "Project"
+      }
+    },
+    "net10.0/win-x64": {}
+  }
+}

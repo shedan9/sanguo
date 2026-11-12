@@ -1,0 +1,11 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../src/Sanguo.Content/Sanguo.Content.csproj" />
+    <ProjectReference Include="../src/Sanguo.Infrastructure/Sanguo.Infrastructure.csproj" />
+    <EmbeddedResource Include="../content/cards/g0-probe.json" LogicalName="Sanguo.G0.cards.json" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "sanguo.battlecore": {
+        "type": "Project"
+      },
+      "sanguo.campaigncore": {
+        "type": "Project"
+      }
+    }
+  }
+}
