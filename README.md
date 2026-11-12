@@ -27,9 +27,14 @@
 
 # 安装同版.NET导出模板后生成Windows验证包；须在沙箱外运行
 ./scripts/export-windows.sh
+
+# 在独立Windows 11 x64设备解压后，于包目录执行（无需SDK或Python）
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\verify-windows.ps1
 ```
 
 `Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`目前仅验证抽样与恢复，不是战斗模拟器。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。
+
+Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存恢复、命令去重和损坏档备份回退，并将报告与日志写入独立临时目录。人工窗口及离线验证仍需记录；当前尚无Windows运行证据，不能因此关闭G0。详细步骤见[Windows验收流程](docs/08-Windows验收流程.md)。
 
 ## 文档导航
 
@@ -43,6 +48,7 @@
 | [战斗界面与交互还原规范](docs/05-战斗界面与交互还原规范.md) | OL对局UI、操作流程、队伍适配、分阶段配音与原型验收 |
 | [开发进度](docs/06-开发进度.md) | 已实现范围、运行证据、未通过的关口与下一步 |
 | [来源登记与校验](docs/07-来源登记与校验.md) | 草稿与冻结检查、证据格式、文件摘要及校验边界 |
+| [Windows验收流程](docs/08-Windows验收流程.md) | 独立设备自动检查、报告归档及人工验收 |
 
 ## 产品标准
 

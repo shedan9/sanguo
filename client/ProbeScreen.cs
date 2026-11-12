@@ -22,7 +22,9 @@ public partial class ProbeScreen : Control
 
     public override void _Ready()
     {
-        var smoke = OS.GetCmdlineUserArgs().Contains("--smoke");
+        var arguments = OS.GetCmdlineUserArgs();
+        var acceptance = arguments.Any(a => a.StartsWith("--acceptance-", StringComparison.Ordinal));
+        var smoke = arguments.Contains("--smoke") || acceptance;
         try
         {
             using var resource = typeof(ProbeScreen).Assembly.GetManifestResourceStream("Sanguo.G0.cards.json")!;
@@ -31,6 +33,7 @@ public partial class ProbeScreen : Control
             if (!result.Success) throw new InvalidOperationException(string.Join("\n", result.Issues));
             _catalog = result.Catalog!;
             NewSession();
+            if (acceptance) { RunAcceptance(arguments); return; }
             if (smoke) { RunSmoke(); return; }
             BuildInterface();
             Refresh("会话已就绪。抽取试验牌，保存后可恢复同一决策点。");
@@ -168,6 +171,18 @@ public partial class ProbeScreen : Control
         if (SnapshotCodec.StateHash(restored) != SnapshotCodec.StateHash(_session.State))
             throw new InvalidOperationException("Godot会话恢复哈希不一致。");
         GD.Print("G0_SMOKE_OK " + SnapshotCodec.StateHash(restored));
+        GetTree().Quit();
+    }
+
+    private void RunAcceptance(string[] arguments)
+    {
+        if (arguments.Length != 2 || arguments[0] is not ("--acceptance-write" or "--acceptance-resume")
+            || !Path.IsPathFullyQualified(arguments[1]))
+            throw new ArgumentException("验收用法：--acceptance-write|--acceptance-resume <专用空目录的绝对路径>");
+        var write = arguments[0] == "--acceptance-write";
+        var hash = write ? G0AcceptanceProbe.Write(arguments[1], _session.State)
+            : G0AcceptanceProbe.Resume(arguments[1], _session.State);
+        GD.Print($"G0_ACCEPTANCE_{(write ? "WRITE" : "RESUME")}_OK {hash}");
         GetTree().Quit();
     }
 }
