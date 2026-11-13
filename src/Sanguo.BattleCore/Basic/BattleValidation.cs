@@ -75,19 +75,24 @@ public static class BattleValidation
             || root.CounteredCardId is not null || root.ChainDepth != 0
             || root.SourceId != units[state.TurnCursor].EntityId || !units.Any(u => u.EntityId == root.SourceId && u.Alive)
             || !units.Any(u => u.EntityId == root.TargetId && u.Alive)
-            || card.Kind is not (BasicCardKind.Slash or BasicCardKind.Duel or BasicCardKind.ExNihilo)
+            || card.Kind is not (BasicCardKind.Slash or BasicCardKind.Duel or BasicCardKind.ExNihilo or BasicCardKind.Dismantlement or BasicCardKind.Snatch)
+            || (card.Kind == BasicCardKind.Snatch && BasicBattle.Distance(state, root.SourceId, root.TargetId) > 1)
             || ((root.SourceId == root.TargetId) != (card.Kind == BasicCardKind.ExNihilo)))
             throw new ArgumentException("使用牌收尾帧与原牌、来源或目标不一致。");
 
         if (response.Kind == EffectKind.Nullification)
         {
-            if (card.Kind is not (BasicCardKind.Duel or BasicCardKind.ExNihilo) || frames.Length < 3
+            if (card.Kind is not (BasicCardKind.Duel or BasicCardKind.ExNihilo or BasicCardKind.Dismantlement or BasicCardKind.Snatch) || frames.Length < 3
                 || state.Processing.Length != frames.Length - 2 || response.Cursor >= aliveCount
                 || response.ChainDepth != frames.Length - 3 || response.ChainDepth > state.StateVersion
                 || response.CounteredCardId is not null || response.Amount != 0 || response.TargetId != root.TargetId)
                 throw new ArgumentException("无懈窗口、连续放弃游标或反制层数无效。");
             var effect = frames[1];
-            if (effect.Kind != (card.Kind == BasicCardKind.Duel ? EffectKind.Duel : EffectKind.DrawCards)
+            if (effect.Kind != (card.Kind switch
+                {
+                    BasicCardKind.Duel => EffectKind.Duel, BasicCardKind.ExNihilo => EffectKind.DrawCards,
+                    _ => EffectKind.SelectHandCard
+                })
                 || effect.SourceId != root.SourceId || effect.TargetId != root.TargetId || effect.CardId != root.CardId
                 || effect.Amount != (card.Kind == BasicCardKind.ExNihilo ? 2 : 0) || effect.Cursor != 0
                 || effect.CounteredCardId is not null || effect.ChainDepth != 0)
@@ -116,6 +121,14 @@ public static class BattleValidation
             || !units.Any(u => u.EntityId == response.SourceId && u.Alive)
             || !units.Any(u => u.EntityId == response.TargetId && u.Alive))
             throw new ArgumentException("响应帧的实体支付、来源或目标无效。");
+        if (card.Kind is BasicCardKind.Dismantlement or BasicCardKind.Snatch)
+        {
+            if (response.Kind != EffectKind.SelectHandCard || response.SourceId != root.SourceId
+                || response.TargetId != root.TargetId || response.Amount != 0 || response.Cursor != 0
+                || units.Single(u => u.EntityId == response.TargetId).Hand.IsEmpty)
+                throw new ArgumentException("拆顺手牌选择帧的对象、区域或游标无效。");
+            return;
+        }
         if (card.Kind == BasicCardKind.Slash)
         {
             if (state.SlashesUsed != 1 || response.SourceId != root.SourceId || response.TargetId != root.TargetId

@@ -3,10 +3,10 @@ using Sanguo.BattleCore.Randomness;
 
 namespace Sanguo.BattleCore.Basic;
 
-/// <summary>通用角色、单批次六种牌的开发规则；尚未冻结为OL规则包。</summary>
+/// <summary>通用角色、单批次八种牌的开发规则；拆顺仅支持手牌，尚未冻结为OL规则包。</summary>
 public static class BasicBattle
 {
-    public const string RulesetId = "rules.basic-development.v2";
+    public const string RulesetId = "rules.basic-development.v3";
 
     public static BattleState Create(string battleId, IEnumerable<CombatantSetup> setup,
         IEnumerable<BattleCard> cards, ulong seed, int initialHandSize = 4)
@@ -38,6 +38,14 @@ public static class BasicBattle
         if (!state.Frames.IsEmpty)
         {
             var frame = state.Frames[^1];
+            if (frame.Kind == EffectKind.SelectHandCard)
+            {
+                // 暗牌动作只包含槽位，不把对方实体牌ID或牌面暴露给控制者。
+                for (var i = 0; i < Unit(state, frame.TargetId).Hand.Length; i++)
+                    actions.Add(new(BattleActionKind.SelectHandCard, TargetId: frame.TargetId,
+                        ResponseToCardId: frame.CardId, HandIndex: i));
+                return actions.ToImmutable();
+            }
             var (kind, actionKind) = frame.Kind switch
             {
                 EffectKind.Dodge => (BasicCardKind.Dodge, BattleActionKind.Dodge),
@@ -67,6 +75,11 @@ public static class BasicBattle
                 if (card.Kind == BasicCardKind.Duel)
                     foreach (var target in state.Combatants.Where(u => u.Alive && u.EntityId != actor.EntityId))
                         actions.Add(new(BattleActionKind.Duel, card.InstanceId, target.EntityId));
+                if (card.Kind is BasicCardKind.Dismantlement or BasicCardKind.Snatch)
+                    foreach (var target in state.Combatants.Where(u => u.Alive && u.EntityId != actor.EntityId
+                        && !u.Hand.IsEmpty && (card.Kind == BasicCardKind.Dismantlement || Distance(state, actor.EntityId, u.EntityId) <= 1)))
+                        actions.Add(new(card.Kind == BasicCardKind.Dismantlement ? BattleActionKind.Dismantlement : BattleActionKind.Snatch,
+                            card.InstanceId, target.EntityId));
                 if (card.Kind != BasicCardKind.Slash || state.SlashesUsed != 0) continue;
                 foreach (var target in state.Combatants.Where(u => u.Alive && u.EntityId != actor.EntityId
                     && Distance(state, actor.EntityId, u.EntityId) <= 1))
@@ -116,12 +129,34 @@ public static class BasicBattle
                 break;
             case BattleActionKind.Duel:
             case BattleActionKind.ExNihilo:
+            case BattleActionKind.Dismantlement:
+            case BattleActionKind.Snatch:
                 state = Pay(state, actorId, action.CardId!);
-                state = Log(state, action.Kind == BattleActionKind.Duel ? "duel.used" : "exnihilo.used", actorId, action.TargetId, action.CardId);
+                state = Log(state, action.Kind switch
+                {
+                    BattleActionKind.Duel => "duel.used", BattleActionKind.ExNihilo => "exnihilo.used",
+                    BattleActionKind.Dismantlement => "dismantlement.used", _ => "snatch.used"
+                }, actorId, action.TargetId, action.CardId);
                 state = Push(state, new(EffectKind.FinishCard, actorId, action.TargetId!, action.CardId!));
-                state = Push(state, new(action.Kind == BattleActionKind.Duel ? EffectKind.Duel : EffectKind.DrawCards,
+                state = Push(state, new(action.Kind switch
+                    {
+                        BattleActionKind.Duel => EffectKind.Duel, BattleActionKind.ExNihilo => EffectKind.DrawCards,
+                        _ => EffectKind.SelectHandCard
+                    },
                     actorId, action.TargetId!, action.CardId!, Amount: action.Kind == BattleActionKind.ExNihilo ? 2 : 0));
                 state = Push(state, new(EffectKind.Nullification, actorId, action.TargetId!, action.CardId!));
+                break;
+            case BattleActionKind.SelectHandCard:
+                var selection = state.Frames[^1];
+                var holder = Unit(state, selection.TargetId);
+                var selected = holder.Hand[action.HandIndex!.Value];
+                var snatch = state.Processing.Single(c => c.InstanceId == selection.CardId).Kind == BasicCardKind.Snatch;
+                state = SetUnit(Pop(state), holder with { Hand = holder.Hand.RemoveAt(action.HandIndex.Value) });
+                state = snatch
+                    ? SetUnit(state, Unit(state, actorId) with { Hand = Unit(state, actorId).Hand.Add(selected) })
+                    : state with { DiscardPile = state.DiscardPile.Add(selected) };
+                state = Log(state, snatch ? "card.snatched" : "card.dismantled", actorId, holder.EntityId,
+                    selected.InstanceId, relatedCardId: selection.CardId);
                 break;
             case BattleActionKind.RespondSlash:
                 var duel = state.Frames[^1];
@@ -169,6 +204,12 @@ public static class BasicBattle
         {
             var frame = state.Frames[^1];
             if (frame.Kind is EffectKind.Dodge or EffectKind.Duel) return WithDecision(state);
+            if (frame.Kind == EffectKind.SelectHandCard)
+            {
+                if (!Unit(state, frame.TargetId).Hand.IsEmpty) return WithDecision(state);
+                state = Log(Pop(state), "trick.no_target_cards", frame.SourceId, frame.TargetId, frame.CardId);
+                continue;
+            }
             if (frame.Kind == EffectKind.Nullification)
             {
                 if (frame.Cursor < state.Combatants.Count(u => u.Alive)) return WithDecision(state);
@@ -261,6 +302,7 @@ public static class BasicBattle
         var actor = state.Frames.IsEmpty ? state.Combatants[state.TurnCursor] : state.Frames[^1].Kind switch
         {
             EffectKind.Dodge or EffectKind.Duel => Unit(state, state.Frames[^1].TargetId),
+            EffectKind.SelectHandCard => Unit(state, state.Frames[^1].SourceId),
             EffectKind.Rescue or EffectKind.Nullification => ResponseOrder(state)[state.Frames[^1].Cursor],
             _ => throw new ArgumentException("待决策效果帧类型无效。")
         };

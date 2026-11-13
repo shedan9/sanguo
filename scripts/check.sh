@@ -16,3 +16,6 @@ cmp build/basic-battle/final.json build/basic-battle/resumed/final.json
 cmp build/trick-battle/final.json build/trick-battle/resumed-counter/final.json
 "$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-tricks-resume build/trick-battle/duel-response.json build/trick-battle/resumed-duel
 cmp build/trick-battle/final.json build/trick-battle/resumed-duel/final.json
+"$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-hand-tricks 42 build/hand-trick-battle
+"$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-hand-tricks-resume build/hand-trick-battle/hand-choice.json build/hand-trick-battle/resumed-hand
+cmp build/hand-trick-battle/final.json build/hand-trick-battle/resumed-hand/final.json

@@ -3,17 +3,17 @@ using Sanguo.BattleCore.Randomness;
 
 namespace Sanguo.BattleCore.Basic;
 
-public enum BasicCardKind { Slash, Dodge, Peach, Duel, ExNihilo, Nullification }
+public enum BasicCardKind { Slash, Dodge, Peach, Duel, ExNihilo, Nullification, Dismantlement, Snatch }
 public enum BattlePhase { Play, Discard, Finished }
-public enum BattleActionKind { Slash, Dodge, Peach, Pass, EndPlay, Discard, Duel, ExNihilo, RespondSlash, Nullify }
-public enum EffectKind { FinishCard, Dodge, Damage, Rescue, Duel, DrawCards, Nullification }
+public enum BattleActionKind { Slash, Dodge, Peach, Pass, EndPlay, Discard, Duel, ExNihilo, RespondSlash, Nullify, Dismantlement, Snatch, SelectHandCard }
+public enum EffectKind { FinishCard, Dodge, Damage, Rescue, Duel, DrawCards, Nullification, SelectHandCard }
 
 public sealed record BattleCard(string InstanceId, BasicCardKind Kind, string Suit, int Rank);
 public sealed record CombatantSetup(string EntityId, string ControllerId, string TeamId, int MaxHp = 4);
 public sealed record Combatant(string EntityId, string ControllerId, string TeamId, int SeatId,
     int Hp, int MaxHp, bool Alive, ImmutableArray<BattleCard> Hand);
 public sealed record BattleAction(BattleActionKind Kind, string? CardId = null, string? TargetId = null,
-    string? ResponseToCardId = null);
+    string? ResponseToCardId = null, int? HandIndex = null);
 public sealed record EffectFrame(EffectKind Kind, string SourceId, string TargetId, string CardId,
     int Amount = 0, int Cursor = 0, string? CounteredCardId = null, int ChainDepth = 0);
 public sealed record BattleDecision(string RequestId, string ControllerId, string ActorId);

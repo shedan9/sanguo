@@ -27,7 +27,7 @@ public static class BasicBattleSnapshotCodec
     {
         BasicBattleSession.Validate(state);
         var payload = JsonSerializer.Serialize(state, Options);
-        return JsonSerializer.SerializeToUtf8Bytes(new BasicBattleEnvelope(FormatId, 2, Hash(payload), payload), Options);
+        return JsonSerializer.SerializeToUtf8Bytes(new BasicBattleEnvelope(FormatId, 3, Hash(payload), payload), Options);
     }
 
     public static BasicBattleSessionState Decode(byte[] bytes, string expectedContentHash)
@@ -36,7 +36,7 @@ public static class BasicBattleSnapshotCodec
         {
             var envelope = JsonSerializer.Deserialize<BasicBattleEnvelope>(bytes, Options)
                 ?? throw new SaveException("save.corrupt", "基础战斗快照为空。");
-            if (envelope.FormatId != FormatId || envelope.FormatVersion != 2)
+            if (envelope.FormatId != FormatId || envelope.FormatVersion != 3)
                 throw new SaveException("save.incompatible", "基础战斗快照格式不兼容。");
             if (envelope.Payload is null || envelope.Checksum is null || envelope.Checksum.Length != 64
                 || !envelope.Checksum.All(Uri.IsHexDigit)

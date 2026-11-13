@@ -29,33 +29,40 @@ internal static class BasicBattleProbe
             3 or 4 => BasicCardKind.Duel, 5 => BasicCardKind.ExNihilo,
             6 or 7 => BasicCardKind.Nullification, _ => BasicCardKind.Slash
         }, new[] { "spade", "heart", "club", "diamond" }[i % 4], i % 13 + 1)).ToArray();
+    private static readonly BattleCard[] HandTrickCards = TrickCards.Select((c, i) => c with
+    {
+        InstanceId = $"handtricks.test.{i:D3}",
+        Kind = (i % 16) switch { 8 => BasicCardKind.Dismantlement, 9 => BasicCardKind.Snatch, _ => c.Kind }
+    }).ToArray();
 
     public static int Run(string[] args)
     {
-        var resume = args[0] is "--battle-resume" or "--battle-tricks-resume";
-        var tricks = args[0] is "--battle-tricks" or "--battle-tricks-resume";
+        var resume = args[0] is "--battle-resume" or "--battle-tricks-resume" or "--battle-hand-tricks-resume";
+        var handTricks = args[0] is "--battle-hand-tricks" or "--battle-hand-tricks-resume";
+        var tricks = handTricks || args[0] is "--battle-tricks" or "--battle-tricks-resume";
         if ((!resume && (args.Length > 3 || (args.Length > 1 && !ulong.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out _))))
             || (resume && args.Length is < 2 or > 3))
         {
-            Console.Error.WriteLine("用法：--battle-basic 或 --battle-tricks [非负种子] [证据目录]；恢复使用 --battle-resume 或 --battle-tricks-resume <快照> [证据目录]");
+            Console.Error.WriteLine("用法：--battle-basic、--battle-tricks 或 --battle-hand-tricks [非负种子] [证据目录]；恢复使用对应的 --battle-resume、--battle-tricks-resume 或 --battle-hand-tricks-resume <快照> [证据目录]");
             return 2;
         }
         try
         {
             var seed = !resume && args.Length > 1 ? ulong.Parse(args[1], CultureInfo.InvariantCulture) : 42UL;
-            var cards = tricks ? TrickCards : Cards;
+            var cards = handTricks ? HandTrickCards : tricks ? TrickCards : Cards;
             var contentHash = Convert.ToHexStringLower(SHA256.HashData(
                 JsonSerializer.SerializeToUtf8Bytes(new { BasicBattle.RulesetId, Units, Cards = cards })));
-            var directory = Path.GetFullPath(args.Length > 2 ? args[2] : Path.Combine("build", tricks ? "trick-battle" : "basic-battle"));
+            var directory = Path.GetFullPath(args.Length > 2 ? args[2] : Path.Combine("build", handTricks ? "hand-trick-battle" : tricks ? "trick-battle" : "basic-battle"));
             Directory.CreateDirectory(directory);
             var session = resume
                 ? new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(args[1]), contentHash))
-                : BasicBattleSession.Create(tricks ? "battle.trick-probe" : "battle.basic-probe", Units, cards, contentHash, seed);
+                : BasicBattleSession.Create(handTricks ? "battle.hand-trick-probe" : tricks ? "battle.trick-probe" : "battle.basic-probe", Units, cards, contentHash, seed);
             var steps = 0;
             var checkpoints = 0;
             var maxCounterDepth = 0;
             var counterSnapshotWritten = false;
             var duelSnapshotWritten = false;
+            var handSnapshotWritten = false;
             var stepsByKind = new Dictionary<string, int>(StringComparer.Ordinal);
             while (session.State.Battle.PendingDecision is not null)
             {
@@ -79,6 +86,11 @@ internal static class BasicBattleProbe
                         File.WriteAllBytes(Path.Combine(directory, "duel-response.json"), bytes);
                         duelSnapshotWritten = true;
                     }
+                    if (!handSnapshotWritten && before.Frames[^1].Kind == EffectKind.SelectHandCard)
+                    {
+                        File.WriteAllBytes(Path.Combine(directory, "hand-choice.json"), bytes);
+                        handSnapshotWritten = true;
+                    }
                 }
                 var restored = new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(path), contentHash));
                 var action = Choose(BasicBattle.Observe(before, before.PendingDecision!.ControllerId));
@@ -96,6 +108,9 @@ internal static class BasicBattleProbe
             }
             var state = session.State.Battle;
             var finalHash = BasicBattleSnapshotCodec.StateHash(session.State);
+            if (handTricks && !resume && (!handSnapshotWritten
+                || !state.Events.Any(e => e.Code == "card.snatched") || !state.Events.Any(e => e.Code == "card.dismantled")))
+                throw new InvalidOperationException("八牌场景未覆盖拆顺与暗牌选择，不能生成通过报告。");
             File.WriteAllBytes(Path.Combine(directory, "final.json"), BasicBattleSnapshotCodec.Encode(session.State));
             File.WriteAllText(Path.Combine(directory, "events.json"), JsonSerializer.Serialize(state.Events, new JsonSerializerOptions { WriteIndented = true }));
             File.WriteAllText(Path.Combine(directory, "report.json"), JsonSerializer.Serialize(new
@@ -105,10 +120,10 @@ internal static class BasicBattleProbe
                 cardCount = state.CardInventory.Length,
                 restoredCheckpoints = checkpoints, stepsByKind, maxCounterDepth, formalOlAccepted = false
             }, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine($"{(tricks ? "TRICK_BATTLE_OK" : "BASIC_BATTLE_OK")} {finalHash}");
+            Console.WriteLine($"{(handTricks ? "HAND_TRICK_BATTLE_OK" : tricks ? "TRICK_BATTLE_OK" : "BASIC_BATTLE_OK")} {finalHash}");
             Console.WriteLine($"通用角色2对2：{state.TurnNumber}个角色回合，{state.StateVersion}条命令，胜方{state.WinnerTeamId}；本次{checkpoints}个决策点恢复与重复命令检查通过。");
             Console.WriteLine($"证据：{directory}");
-            Console.WriteLine($"{(tricks ? "六种牌含决斗、无中生有、无懈" : "三种基本牌")}的开发场景；OL武将、拆顺与战斗界面尚未接入，M1未验收。");
+            Console.WriteLine($"{(handTricks ? "八种牌含手牌拆顺" : tricks ? "六种牌含决斗、无中生有、无懈" : "三种基本牌")}的开发场景；装备、判定、OL武将与战斗界面尚未接入，M1未验收。");
             return 0;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SaveException or ArgumentException or InvalidOperationException)
@@ -124,11 +139,14 @@ internal static class BasicBattleProbe
         var actor = view.Combatants.Single(u => u.EntityId == view.PendingDecision!.ActorId);
         // 决策仅使用当前控制者视图；未知牌和牌堆顺序不参与选择。
         return actions.FirstOrDefault(a => a.Kind == BattleActionKind.Dodge)
+            ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.SelectHandCard)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.RespondSlash)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Nullify && view.Response is { } response
                 && view.Combatants.Single(u => u.EntityId == response.SourceId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Peach && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId == actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.ExNihilo)
+            ?? actions.FirstOrDefault(a => a.Kind is BattleActionKind.Snatch or BattleActionKind.Dismantlement
+                && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Duel && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Slash && view.Combatants.Single(u => u.EntityId == a.TargetId).TeamId != actor.TeamId)
             ?? actions.FirstOrDefault(a => a.Kind == BattleActionKind.Pass)

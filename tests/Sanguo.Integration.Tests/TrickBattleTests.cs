@@ -416,6 +416,6 @@ public class TrickBattleTests
         var text = payload.ToJsonString();
         var checksum = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
         return BasicBattleSnapshotCodec.Decode(JsonSerializer.SerializeToUtf8Bytes(new
-            { formatId = "sanguo.basic-battle", formatVersion = 2, checksum, payload = text }), ContentHash);
+            { formatId = "sanguo.basic-battle", formatVersion = 3, checksum, payload = text }), ContentHash);
     }
 }
