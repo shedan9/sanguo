@@ -3,16 +3,16 @@ using Sanguo.BattleCore.Randomness;
 
 namespace Sanguo.BattleCore.Basic;
 
-/// <summary>通用角色、单批次八种牌的开发规则；拆顺仅支持手牌，尚未冻结为OL规则包。</summary>
-public static class BasicBattle
+/// <summary>单批次八种牌与固定技能开发配置；拆顺和转换成本仅支持手牌，尚未冻结为OL规则包。</summary>
+public static partial class BasicBattle
 {
-    public const string RulesetId = "rules.basic-development.v3";
+    public const string RulesetId = "rules.basic-development.v4";
 
     public static BattleState Create(string battleId, IEnumerable<CombatantSetup> setup,
         IEnumerable<BattleCard> cards, ulong seed, int initialHandSize = 4)
     {
         var units = setup.Select((u, i) => new Combatant(u.EntityId, u.ControllerId, u.TeamId,
-            i, u.MaxHp, u.MaxHp, true, [])).ToImmutableArray();
+            i, u.MaxHp, u.MaxHp, true, [], u.Profile)).ToImmutableArray();
         var pile = cards.ToList();
         if (initialHandSize < 0 || pile.Count < (long)units.Length * initialHandSize)
             throw new ArgumentException("开局牌不足或手牌数量无效。");
@@ -38,6 +38,9 @@ public static class BasicBattle
         if (!state.Frames.IsEmpty)
         {
             var frame = state.Frames[^1];
+            if (frame.Kind == EffectKind.InvokeJianxiong)
+                return [new(BattleActionKind.InvokeSkill, TargetId: actor.EntityId,
+                    ResponseToCardId: frame.CardId, SkillId: BattleSkills.Jianxiong), new(BattleActionKind.Pass)];
             if (frame.Kind == EffectKind.SelectHandCard)
             {
                 // 暗牌动作只包含槽位，不把对方实体牌ID或牌面暴露给控制者。
@@ -58,6 +61,9 @@ public static class BasicBattle
                 actions.Add(new(actionKind, card.InstanceId,
                     frame.Kind is EffectKind.Nullification or EffectKind.Duel ? frame.SourceId : frame.TargetId,
                     frame.Kind == EffectKind.Nullification ? frame.CardId : null));
+            if (frame.Kind == EffectKind.Duel && BattleSkills.Has(actor, BattleSkills.Wusheng))
+                foreach (var card in actor.Hand.Where(BattleSkills.IsRed))
+                    actions.Add(new(BattleActionKind.RespondSlash, card.InstanceId, frame.SourceId, SkillId: BattleSkills.Wusheng));
             actions.Add(new(BattleActionKind.Pass));
         }
         else if (state.Phase == BattlePhase.Discard)
@@ -80,10 +86,21 @@ public static class BasicBattle
                         && !u.Hand.IsEmpty && (card.Kind == BasicCardKind.Dismantlement || Distance(state, actor.EntityId, u.EntityId) <= 1)))
                         actions.Add(new(card.Kind == BasicCardKind.Dismantlement ? BattleActionKind.Dismantlement : BattleActionKind.Snatch,
                             card.InstanceId, target.EntityId));
-                if (card.Kind != BasicCardKind.Slash || state.SlashesUsed != 0) continue;
+                if (state.SlashesUsed != 0) continue;
                 foreach (var target in state.Combatants.Where(u => u.Alive && u.EntityId != actor.EntityId
                     && Distance(state, actor.EntityId, u.EntityId) <= 1))
-                    actions.Add(new(BattleActionKind.Slash, card.InstanceId, target.EntityId));
+                {
+                    if (card.Kind == BasicCardKind.Slash)
+                    {
+                        actions.Add(new(BattleActionKind.Slash, card.InstanceId, target.EntityId));
+                        if (!state.FenjiUsed && BattleSkills.Has(actor, BattleSkills.FenjiI))
+                            foreach (var cost in actor.Hand.Where(c => c.InstanceId != card.InstanceId))
+                                actions.Add(new(BattleActionKind.Slash, card.InstanceId, target.EntityId,
+                                    SkillId: BattleSkills.FenjiI, CostCardId: cost.InstanceId));
+                    }
+                    if (BattleSkills.Has(actor, BattleSkills.Wusheng) && BattleSkills.IsRed(card))
+                        actions.Add(new(BattleActionKind.Slash, card.InstanceId, target.EntityId, SkillId: BattleSkills.Wusheng));
+                }
             }
             actions.Add(new(BattleActionKind.EndPlay));
         }
@@ -94,11 +111,13 @@ public static class BasicBattle
         => new(state.BattleId, state.StateVersion, state.Phase, state.TurnNumber,
             state.Combatants[state.TurnCursor].EntityId,
             state.Combatants.Select(u => new CombatantView(u.EntityId, u.TeamId, u.SeatId, u.Hp,
-                u.MaxHp, u.Alive, u.Hand.Length, u.ControllerId == controllerId ? u.Hand : [])).ToImmutableArray(),
+                u.MaxHp, u.Alive, u.Hand.Length, u.ControllerId == controllerId ? u.Hand : [],
+                u.Profile, BattleSkills.Observe(u.Profile))).ToImmutableArray(),
             state.DrawPile.Length, state.Processing, state.DiscardPile,
             state.PendingDecision, state.PendingDecision?.ControllerId == controllerId ? GetLegalActions(state) : [],
             state.WinnerTeamId, state.Frames.IsEmpty ? null : new(state.Frames[^1].Kind,
-                state.Frames[^1].SourceId, state.Frames[^1].TargetId, state.Frames[^1].CardId, state.Frames[^1].ChainDepth));
+                state.Frames[^1].SourceId, state.Frames[^1].TargetId, state.Frames[^1].CardId, state.Frames[^1].ChainDepth,
+                state.Frames[^1].SkillId ?? state.Frames[0].SkillId, state.Frames[0].DamageBonus));
 
     public static int Distance(BattleState state, string sourceId, string targetId)
     {
@@ -118,9 +137,11 @@ public static class BasicBattle
         switch (action.Kind)
         {
             case BattleActionKind.Slash:
+                state = PaySlashSkill(state, actorId, action);
                 state = Pay(state, actorId, action.CardId!);
                 state = Log(state with { SlashesUsed = 1 }, "slash.used", actorId, action.TargetId, action.CardId);
-                state = Push(state, new(EffectKind.FinishCard, actorId, action.TargetId!, action.CardId!));
+                state = Push(state, new(EffectKind.FinishCard, actorId, action.TargetId!, action.CardId!,
+                    SkillId: action.SkillId, DamageBonus: action.SkillId == BattleSkills.FenjiI ? 1 : 0));
                 state = Push(state, new(EffectKind.Dodge, actorId, action.TargetId!, action.CardId!));
                 break;
             case BattleActionKind.Dodge:
@@ -160,6 +181,7 @@ public static class BasicBattle
                 break;
             case BattleActionKind.RespondSlash:
                 var duel = state.Frames[^1];
+                if (action.SkillId is not null) state = LogSkill(state, actorId, action);
                 state = FinishPayment(Pay(state, actorId, action.CardId!), action.CardId!, actorId);
                 state = Log(Pop(state), "duel.slash_responded", actorId, duel.SourceId, action.CardId, relatedCardId: duel.CardId);
                 state = Push(state, duel with { SourceId = duel.TargetId, TargetId = duel.SourceId, Cursor = checked(duel.Cursor + 1) });
@@ -184,9 +206,17 @@ public static class BasicBattle
                 var frame = state.Frames[^1];
                 state = Log(state, "response.passed", actorId, frame.TargetId);
                 state = Pop(state);
+                if (frame.Kind == EffectKind.InvokeJianxiong)
+                {
+                    state = Log(state, "skill.declined", actorId, frame.SourceId, frame.CardId, relatedCardId: BattleSkills.Jianxiong);
+                    break;
+                }
                 state = Push(state, frame.Kind is EffectKind.Dodge or EffectKind.Duel
-                    ? frame with { Kind = EffectKind.Damage, Amount = 1, Cursor = 0 }
+                    ? frame with { Kind = EffectKind.Damage, Amount = 1 + (frame.Kind == EffectKind.Dodge ? state.Frames[0].DamageBonus : 0), Cursor = 0 }
                     : frame with { Cursor = frame.Cursor + 1 });
+                break;
+            case BattleActionKind.InvokeSkill:
+                state = AcquireDamageCard(state, actorId);
                 break;
             case BattleActionKind.EndPlay:
                 state = Log(state with { Phase = BattlePhase.Discard }, "play.ended", actorId);
@@ -203,7 +233,12 @@ public static class BasicBattle
         while (!state.Frames.IsEmpty)
         {
             var frame = state.Frames[^1];
-            if (frame.Kind is EffectKind.Dodge or EffectKind.Duel) return WithDecision(state);
+            if (frame.Kind is EffectKind.Dodge or EffectKind.Duel or EffectKind.InvokeJianxiong) return WithDecision(state);
+            if (frame.Kind == EffectKind.AfterDamage)
+            {
+                state = ResolveAfterDamage(Pop(state), frame);
+                continue;
+            }
             if (frame.Kind == EffectKind.SelectHandCard)
             {
                 if (!Unit(state, frame.TargetId).Hand.IsEmpty) return WithDecision(state);
@@ -234,7 +269,9 @@ public static class BasicBattle
             }
             state = Pop(state);
             if (frame.Kind == EffectKind.FinishCard)
-                state = FinishPayment(state, frame.CardId, frame.SourceId);
+                state = state.Processing.Any(c => c.InstanceId == frame.CardId)
+                    ? FinishPayment(state, frame.CardId, frame.SourceId)
+                    : Log(state, "card.finished_after_gain", frame.SourceId, frame.TargetId, frame.CardId);
             else if (frame.Kind == EffectKind.DrawCards)
                 state = Draw(state, Unit(state, frame.TargetId).SeatId, frame.Amount);
             else if (frame.Kind == EffectKind.Damage)
@@ -242,6 +279,8 @@ public static class BasicBattle
                 var target = Unit(state, frame.TargetId);
                 target = target with { Hp = target.Hp - frame.Amount };
                 state = Log(SetUnit(state, target), "damage.dealt", frame.SourceId, target.EntityId, frame.CardId, frame.Amount);
+                if (BattleSkills.Has(target, BattleSkills.Jianxiong))
+                    state = Push(state, frame with { Kind = EffectKind.AfterDamage, Cursor = 0 });
                 if (target.Hp <= 0)
                     state = Push(Log(state, "dying.started", target.EntityId), frame with { Kind = EffectKind.Rescue, Cursor = 0 });
             }
@@ -257,7 +296,7 @@ public static class BasicBattle
         state = Log(state, "turn.ended", active.EntityId);
         var next = (state.TurnCursor + 1) % state.Combatants.Length;
         while (!state.Combatants[next].Alive) next = (next + 1) % state.Combatants.Length;
-        state = state with { TurnCursor = next, TurnNumber = checked(state.TurnNumber + 1), Phase = BattlePhase.Play, SlashesUsed = 0 };
+        state = state with { TurnCursor = next, TurnNumber = checked(state.TurnNumber + 1), Phase = BattlePhase.Play, SlashesUsed = 0, FenjiUsed = false };
         state = Draw(Log(state, "turn.started", state.Combatants[next].EntityId), next, 2);
         return WithDecision(state);
     }
@@ -301,7 +340,7 @@ public static class BasicBattle
     {
         var actor = state.Frames.IsEmpty ? state.Combatants[state.TurnCursor] : state.Frames[^1].Kind switch
         {
-            EffectKind.Dodge or EffectKind.Duel => Unit(state, state.Frames[^1].TargetId),
+            EffectKind.Dodge or EffectKind.Duel or EffectKind.InvokeJianxiong => Unit(state, state.Frames[^1].TargetId),
             EffectKind.SelectHandCard => Unit(state, state.Frames[^1].SourceId),
             EffectKind.Rescue or EffectKind.Nullification => ResponseOrder(state)[state.Frames[^1].Cursor],
             _ => throw new ArgumentException("待决策效果帧类型无效。")

@@ -12,7 +12,7 @@ public sealed record BasicBattleSessionState(string EngineVersion, string Conten
 /// <summary>独立于G0抽牌会话，基础战斗尚不产生战役奖励或占城事件。</summary>
 public sealed class BasicBattleSession
 {
-    public const string EngineVersion = "0.4.0-basic-development";
+    public const string EngineVersion = "0.5.0-basic-development";
     private readonly object _gate = new();
     public BasicBattleSessionState State { get; private set; }
 

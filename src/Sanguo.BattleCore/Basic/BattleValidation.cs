@@ -17,11 +17,13 @@ public static class BattleValidation
         _ = new Pcg32(state.Random);
         var units = state.Combatants;
         if (units.Any(u => u is null || string.IsNullOrWhiteSpace(u.EntityId) || string.IsNullOrWhiteSpace(u.ControllerId)
-            || string.IsNullOrWhiteSpace(u.TeamId) || u.MaxHp <= 0 || u.Hp > u.MaxHp || u.Hand.IsDefault
+            || string.IsNullOrWhiteSpace(u.TeamId) || u.MaxHp <= 0 || u.Hp > u.MaxHp || u.Hand.IsDefault || !Enum.IsDefined(u.Profile)
             || (!u.Alive && (u.Hp > 0 || !u.Hand.IsEmpty)))
             || units.Select(u => u.EntityId).Distinct(StringComparer.Ordinal).Count() != units.Length
             || units.Where((u, i) => u.SeatId != i).Any())
             throw new ArgumentException("战斗单位、座次、体力或手牌无效。");
+        if (state.FenjiUsed && (!BattleSkills.Has(units[state.TurnCursor], BattleSkills.FenjiI) || state.SlashesUsed != 1))
+            throw new ArgumentException("奋击阶段计数与当前技能拥有者或出杀次数不一致。");
         var groups = units.GroupBy(u => u.TeamId).ToArray();
         if (groups.Length != 2 || groups.Any(g => g.Count() is < 1 or > 4))
             throw new ArgumentException("必须有两个阵营，每方1至4个单位。");
@@ -66,35 +68,48 @@ public static class BattleValidation
         var units = state.Combatants;
         var aliveCount = units.Count(u => u.Alive);
         if (state.Phase != BattlePhase.Play || frames.Length < 2 || state.Processing.IsEmpty
-            || frames.Any(f => f is null || !Enum.IsDefined(f.Kind) || f.Cursor < 0 || f.ChainDepth < 0))
+            || frames.Any(f => f is null || !Enum.IsDefined(f.Kind) || f.Cursor < 0 || f.ChainDepth < 0)
+            || frames.Skip(1).Any(f => f.DamageBonus != 0
+                || (f.Kind == EffectKind.InvokeJianxiong ? f.SkillId != BattleSkills.Jianxiong : f.SkillId is not null)))
             throw new ArgumentException("基础战斗效果栈或处理区无效。");
         var root = frames[0];
         var response = frames[^1];
         var card = state.Processing[0];
+        var source = units.FirstOrDefault(u => u.EntityId == root.SourceId);
+        if (source is null) throw new ArgumentException("原使用者不存在。");
+        var kind = root.SkillId is BattleSkills.Wusheng or BattleSkills.FenjiI ? BasicCardKind.Slash : card.Kind;
+        var validSkill = root.SkillId switch
+        {
+            null => root.DamageBonus == 0,
+            BattleSkills.Wusheng => BattleSkills.Has(source, BattleSkills.Wusheng) && BattleSkills.IsRed(card) && root.DamageBonus == 0,
+            BattleSkills.FenjiI => BattleSkills.Has(source, BattleSkills.FenjiI) && state.FenjiUsed
+                && card.Kind == BasicCardKind.Slash && root.DamageBonus == 1,
+            _ => false
+        };
         if (root.Kind != EffectKind.FinishCard || root.CardId != card.InstanceId || root.Amount != 0 || root.Cursor != 0
             || root.CounteredCardId is not null || root.ChainDepth != 0
             || root.SourceId != units[state.TurnCursor].EntityId || !units.Any(u => u.EntityId == root.SourceId && u.Alive)
             || !units.Any(u => u.EntityId == root.TargetId && u.Alive)
-            || card.Kind is not (BasicCardKind.Slash or BasicCardKind.Duel or BasicCardKind.ExNihilo or BasicCardKind.Dismantlement or BasicCardKind.Snatch)
-            || (card.Kind == BasicCardKind.Snatch && BasicBattle.Distance(state, root.SourceId, root.TargetId) > 1)
-            || ((root.SourceId == root.TargetId) != (card.Kind == BasicCardKind.ExNihilo)))
+            || !validSkill || kind is not (BasicCardKind.Slash or BasicCardKind.Duel or BasicCardKind.ExNihilo or BasicCardKind.Dismantlement or BasicCardKind.Snatch)
+            || (kind == BasicCardKind.Snatch && BasicBattle.Distance(state, root.SourceId, root.TargetId) > 1)
+            || ((root.SourceId == root.TargetId) != (kind == BasicCardKind.ExNihilo)))
             throw new ArgumentException("使用牌收尾帧与原牌、来源或目标不一致。");
 
         if (response.Kind == EffectKind.Nullification)
         {
-            if (card.Kind is not (BasicCardKind.Duel or BasicCardKind.ExNihilo or BasicCardKind.Dismantlement or BasicCardKind.Snatch) || frames.Length < 3
+            if (kind is not (BasicCardKind.Duel or BasicCardKind.ExNihilo or BasicCardKind.Dismantlement or BasicCardKind.Snatch) || frames.Length < 3
                 || state.Processing.Length != frames.Length - 2 || response.Cursor >= aliveCount
                 || response.ChainDepth != frames.Length - 3 || response.ChainDepth > state.StateVersion
                 || response.CounteredCardId is not null || response.Amount != 0 || response.TargetId != root.TargetId)
                 throw new ArgumentException("无懈窗口、连续放弃游标或反制层数无效。");
             var effect = frames[1];
-            if (effect.Kind != (card.Kind switch
+            if (effect.Kind != (kind switch
                 {
                     BasicCardKind.Duel => EffectKind.Duel, BasicCardKind.ExNihilo => EffectKind.DrawCards,
                     _ => EffectKind.SelectHandCard
                 })
                 || effect.SourceId != root.SourceId || effect.TargetId != root.TargetId || effect.CardId != root.CardId
-                || effect.Amount != (card.Kind == BasicCardKind.ExNihilo ? 2 : 0) || effect.Cursor != 0
+                || effect.Amount != (kind == BasicCardKind.ExNihilo ? 2 : 0) || effect.Cursor != 0
                 || effect.CounteredCardId is not null || effect.ChainDepth != 0)
                 throw new ArgumentException("锦囊效果帧与原始使用不一致。");
             var previousCardId = root.CardId;
@@ -116,12 +131,16 @@ public static class BattleValidation
             return;
         }
 
-        if (frames.Length != 2 || state.Processing.Length != 1 || response.CardId != root.CardId
+        var hasAfterDamage = response.Kind == EffectKind.Rescue
+            && units.Any(u => u.EntityId == response.TargetId && BattleSkills.Has(u, BattleSkills.Jianxiong));
+        if (frames.Length != (hasAfterDamage ? 3 : 2) || state.Processing.Length != 1 || response.CardId != root.CardId
             || response.CounteredCardId is not null || response.ChainDepth != 0
             || !units.Any(u => u.EntityId == response.SourceId && u.Alive)
             || !units.Any(u => u.EntityId == response.TargetId && u.Alive))
             throw new ArgumentException("响应帧的实体支付、来源或目标无效。");
-        if (card.Kind is BasicCardKind.Dismantlement or BasicCardKind.Snatch)
+        if (hasAfterDamage && frames[1] != response with { Kind = EffectKind.AfterDamage, Cursor = 0 })
+            throw new ArgumentException("濒死后的伤害触发上下文不一致。");
+        if (kind is BasicCardKind.Dismantlement or BasicCardKind.Snatch)
         {
             if (response.Kind != EffectKind.SelectHandCard || response.SourceId != root.SourceId
                 || response.TargetId != root.TargetId || response.Amount != 0 || response.Cursor != 0
@@ -129,24 +148,34 @@ public static class BattleValidation
                 throw new ArgumentException("拆顺手牌选择帧的对象、区域或游标无效。");
             return;
         }
-        if (card.Kind == BasicCardKind.Slash)
+        if (kind == BasicCardKind.Slash)
         {
             if (state.SlashesUsed != 1 || response.SourceId != root.SourceId || response.TargetId != root.TargetId
-                || response.Kind is not (EffectKind.Dodge or EffectKind.Rescue))
+                || response.Kind is not (EffectKind.Dodge or EffectKind.Rescue or EffectKind.InvokeJianxiong))
                 throw new ArgumentException("杀的响应类型、次数或对象无效。");
         }
-        else if (card.Kind == BasicCardKind.Duel)
+        else if (kind == BasicCardKind.Duel)
         {
-            if (response.Kind is not (EffectKind.Duel or EffectKind.Rescue)
+            if (response.Kind is not (EffectKind.Duel or EffectKind.Rescue or EffectKind.InvokeJianxiong)
                 || !((response.SourceId == root.SourceId && response.TargetId == root.TargetId)
                     || (response.SourceId == root.TargetId && response.TargetId == root.SourceId)))
                 throw new ArgumentException("决斗响应或伤害双方无效。");
         }
         else throw new ArgumentException("摸牌锦囊不能挂起为杀、决斗或濒死响应。");
 
+        var damageAmount = 1 + root.DamageBonus;
+        if (response.Kind == EffectKind.InvokeJianxiong)
+        {
+            var recipient = units.Single(u => u.EntityId == response.TargetId);
+            if (!BattleSkills.Has(recipient, BattleSkills.Jianxiong) || recipient.Hp <= 0
+                || response.Amount != damageAmount || response.Cursor != 0)
+                throw new ArgumentException("奸雄触发的技能来源、伤害或存活状态无效。");
+            return;
+        }
+
         if (response.Kind == EffectKind.Rescue)
         {
-            if (response.Amount != 1 || response.Cursor >= aliveCount || units.Single(u => u.EntityId == response.TargetId).Hp > 0)
+            if (response.Amount != damageAmount || response.Cursor >= aliveCount || units.Single(u => u.EntityId == response.TargetId).Hp > 0)
                 throw new ArgumentException("濒死帧的伤害、救援游标或体力无效。");
         }
         else if (response.Amount != 0 || response.Cursor > state.StateVersion

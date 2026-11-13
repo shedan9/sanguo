@@ -6,7 +6,7 @@ using Sanguo.Infrastructure.Saves;
 using Sanguo.Simulator;
 
 if (args.Length > 0 && args[0] is "--battle-basic" or "--battle-resume" or "--battle-tricks" or "--battle-tricks-resume"
-    or "--battle-hand-tricks" or "--battle-hand-tricks-resume")
+    or "--battle-hand-tricks" or "--battle-hand-tricks-resume" or "--battle-skills" or "--battle-skills-resume")
     return BasicBattleProbe.Run(args);
 
 if (args.Length is < 1 or > 3 || (args.Length >= 2 && !ulong.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out _)))
