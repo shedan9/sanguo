@@ -33,7 +33,8 @@ public sealed record CombatantView(string EntityId, string TeamId, int SeatId, i
     bool Alive, int HandCount, ImmutableArray<BattleCard> VisibleHand,
     BattleProfile Profile = BattleProfile.Generic, ImmutableArray<BattleSkillView> Skills = default);
 public sealed record BattleResponse(EffectKind Kind, string SourceId, string TargetId, string CardId, int ChainDepth,
-    string? SkillId = null, int DamageBonus = 0);
+    string? SkillId = null, int DamageBonus = 0, BattleTrickContext? Trick = null);
+public sealed record BattleTrickContext(string SourceId, string TargetId, string CardId, BasicCardKind CardKind);
 public sealed record BattleView(string BattleId, long StateVersion, BattlePhase Phase, int TurnNumber,
     string ActiveUnitId, ImmutableArray<CombatantView> Combatants, int DrawCount,
     ImmutableArray<BattleCard> Processing, ImmutableArray<BattleCard> DiscardPile,

@@ -2,12 +2,13 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Sanguo.Application;
+using Sanguo.AI;
 using Sanguo.BattleCore.Basic;
 using Sanguo.Infrastructure.Saves;
 
 namespace Sanguo.Simulator;
 
-/// <summary>公开的合成场景及固定操作脚本，不作为正式牌组或战术AI。</summary>
+/// <summary>合成开发场景；历史入口使用固定脚本，AI入口使用独立的控制者视图评分策略。</summary>
 internal static class BasicBattleProbe
 {
     private static readonly CombatantSetup[] Units =
@@ -44,14 +45,15 @@ internal static class BasicBattleProbe
 
     public static int Run(string[] args)
     {
-        var resume = args[0] is "--battle-resume" or "--battle-tricks-resume" or "--battle-hand-tricks-resume" or "--battle-skills-resume";
-        var skills = args[0] is "--battle-skills" or "--battle-skills-resume";
+        var ai = args[0] is "--battle-ai" or "--battle-ai-resume";
+        var resume = args[0] is "--battle-resume" or "--battle-tricks-resume" or "--battle-hand-tricks-resume" or "--battle-skills-resume" or "--battle-ai-resume";
+        var skills = ai || args[0] is "--battle-skills" or "--battle-skills-resume";
         var handTricks = skills || args[0] is "--battle-hand-tricks" or "--battle-hand-tricks-resume";
         var tricks = handTricks || args[0] is "--battle-tricks" or "--battle-tricks-resume";
         if ((!resume && (args.Length > 3 || (args.Length > 1 && !ulong.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out _))))
             || (resume && args.Length is < 2 or > 3))
         {
-            Console.Error.WriteLine("用法：--battle-basic、--battle-tricks、--battle-hand-tricks 或 --battle-skills [非负种子] [证据目录]；恢复使用对应的 --battle-resume、--battle-tricks-resume、--battle-hand-tricks-resume 或 --battle-skills-resume <快照> [证据目录]");
+            Console.Error.WriteLine("用法：--battle-basic、--battle-tricks、--battle-hand-tricks、--battle-skills 或 --battle-ai [非负种子] [证据目录]；恢复使用对应的 --battle-resume、--battle-tricks-resume、--battle-hand-tricks-resume、--battle-skills-resume 或 --battle-ai-resume <快照> [证据目录]");
             return 2;
         }
         try
@@ -62,11 +64,13 @@ internal static class BasicBattleProbe
             var contentHash = Convert.ToHexStringLower(SHA256.HashData(
                 JsonSerializer.SerializeToUtf8Bytes(new { BasicBattle.RulesetId, Units = units, Cards = cards,
                     SkillDefinitions = units.SelectMany(u => BattleSkills.For(u.Profile)).Distinct().ToArray() })));
-            var directory = Path.GetFullPath(args.Length > 2 ? args[2] : Path.Combine("build", skills ? "skill-battle" : handTricks ? "hand-trick-battle" : tricks ? "trick-battle" : "basic-battle"));
+            if (ai) contentHash = Convert.ToHexStringLower(SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(contentHash + BasicBattleAi.PolicyId)));
+            var directory = Path.GetFullPath(args.Length > 2 ? args[2] : Path.Combine("build", ai ? "ai-battle" : skills ? "skill-battle" : handTricks ? "hand-trick-battle" : tricks ? "trick-battle" : "basic-battle"));
             Directory.CreateDirectory(directory);
             var session = resume
                 ? new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(args[1]), contentHash))
-                : BasicBattleSession.Create(skills ? "battle.skill-probe" : handTricks ? "battle.hand-trick-probe" : tricks ? "battle.trick-probe" : "battle.basic-probe", units, cards, contentHash, seed);
+                : BasicBattleSession.Create(ai ? "battle.ai-probe" : skills ? "battle.skill-probe" : handTricks ? "battle.hand-trick-probe" : tricks ? "battle.trick-probe" : "battle.basic-probe", units, cards, contentHash, seed);
             var steps = 0;
             var checkpoints = 0;
             var maxCounterDepth = 0;
@@ -76,6 +80,7 @@ internal static class BasicBattleProbe
             var skillSnapshotWritten = false;
             var skillSlashSnapshotWritten = false;
             var stepsByKind = new Dictionary<string, int>(StringComparer.Ordinal);
+            var aiChoices = new List<object>();
             while (session.State.Battle.PendingDecision is not null)
             {
                 if (++steps > 4000) throw new InvalidOperationException("步数保护触发，场景未完成；不得视为胜利。");
@@ -85,6 +90,8 @@ internal static class BasicBattleProbe
                 var path = Path.Combine(directory, "checkpoint.json");
                 var bytes = BasicBattleSnapshotCodec.Encode(session.State);
                 File.WriteAllBytes(path, bytes);
+                if (ai && !resume && steps == 12)
+                    File.WriteAllBytes(Path.Combine(directory, "ai-decision.json"), bytes);
                 if (!before.Frames.IsEmpty)
                 {
                     maxCounterDepth = Math.Max(maxCounterDepth, before.Frames[^1].ChainDepth);
@@ -115,7 +122,15 @@ internal static class BasicBattleProbe
                     }
                 }
                 var restored = new BasicBattleSession(BasicBattleSnapshotCodec.Decode(File.ReadAllBytes(path), contentHash));
-                var action = Choose(BasicBattle.Observe(before, before.PendingDecision!.ControllerId));
+                var view = BasicBattle.Observe(before, before.PendingDecision!.ControllerId);
+                var choice = ai ? BasicBattleAi.Choose(view) ?? throw new InvalidOperationException("AI未返回合法动作。") : null;
+                var action = choice?.Action ?? Choose(view);
+                if (choice is not null)
+                {
+                    var restoredChoice = BasicBattleAi.Choose(BasicBattle.Observe(restored.State.Battle, before.PendingDecision.ControllerId));
+                    if (choice != restoredChoice) throw new InvalidOperationException("AI恢复后决策不一致。");
+                    aiChoices.Add(new { before.StateVersion, before.PendingDecision.ActorId, Choice = choice });
+                }
                 var decision = before.PendingDecision;
                 var command = new BattleCommand($"basic.command.{before.StateVersion}", before.StateVersion,
                     decision.ControllerId, decision.RequestId, decision.ActorId, action);
@@ -130,10 +145,10 @@ internal static class BasicBattleProbe
             }
             var state = session.State.Battle;
             var finalHash = BasicBattleSnapshotCodec.StateHash(session.State);
-            if (handTricks && !resume && (!handSnapshotWritten
+            if (handTricks && !ai && !resume && (!handSnapshotWritten
                 || !state.Events.Any(e => e.Code == "card.snatched") || !state.Events.Any(e => e.Code == "card.dismantled")))
                 throw new InvalidOperationException("八牌场景未覆盖拆顺与暗牌选择，不能生成通过报告。");
-            if (skills && !resume && (!skillSnapshotWritten || !skillSlashSnapshotWritten
+            if (skills && !ai && !resume && (!skillSnapshotWritten || !skillSlashSnapshotWritten
                 || !state.Events.Any(e => e.Code == "skill.used" && e.RelatedCardId == BattleSkills.Wusheng)
                 || !state.Events.Any(e => e.Code == "skill.used" && e.RelatedCardId == BattleSkills.FenjiI)
                 || !state.Events.Any(e => e.Code == "skill.jianxiong_gained")))
@@ -147,7 +162,9 @@ internal static class BasicBattleProbe
                 cardCount = state.CardInventory.Length,
                 restoredCheckpoints = checkpoints, stepsByKind, maxCounterDepth, formalOlAccepted = false
             }, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine($"{(skills ? "SKILL_BATTLE_OK" : handTricks ? "HAND_TRICK_BATTLE_OK" : tricks ? "TRICK_BATTLE_OK" : "BASIC_BATTLE_OK")} {finalHash}");
+            if (ai) File.WriteAllText(Path.Combine(directory, "ai-choices.json"), JsonSerializer.Serialize(aiChoices,
+                new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"{(ai ? "AI_BATTLE_OK" : skills ? "SKILL_BATTLE_OK" : handTricks ? "HAND_TRICK_BATTLE_OK" : tricks ? "TRICK_BATTLE_OK" : "BASIC_BATTLE_OK")} {finalHash}");
             Console.WriteLine($"通用角色2对2：{state.TurnNumber}个角色回合，{state.StateVersion}条命令，胜方{state.WinnerTeamId}；本次{checkpoints}个决策点恢复与重复命令检查通过。");
             Console.WriteLine($"证据：{directory}");
             Console.WriteLine($"{(skills ? "武圣、奸雄、奋击及八种牌" : handTricks ? "八种牌含手牌拆顺" : tricks ? "六种牌含决斗、无中生有、无懈" : "三种基本牌")}的开发场景；装备、判定、正式OL内容包与战斗界面尚未接入，M1未验收。");

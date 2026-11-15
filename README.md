@@ -2,7 +2,7 @@
 
 以《三国杀Online》武将与卡牌规则为基础的三国背景策略单机游戏。玩家从平民出发，自由招募武将，通过武将卡牌战斗攻城略地，选择三种背景之一，经历各自从无名小辈到统一天下的完整故事。《三国行纪》为暂定工作名。
 
-当前阶段：M0/G0进行中，已建立C#工程、内容校验、固定随机流、可保存恢复的抽牌试验与Godot验证场景，三线全程故事大纲已形成制作草稿。战斗开发核心已支持八种牌（拆顺仅手牌区），新增关羽武圣、曹操奸雄及原创奋击I阶的开发配置；可执行连续反无懈、暗牌选择、转换牌、多点伤害、濒死救援、伤后技能询问与终局，并在每个决策点保存恢复；完整P0与G0全部验收仍待完成。实际进度见[开发进度](docs/06-开发进度.md)。
+当前阶段：M0/G0进行中，已建立C#工程、内容校验、固定随机流、可保存恢复的抽牌试验与Godot验证场景，三线全程故事大纲已形成制作草稿。战斗开发核心已支持八种牌（拆顺仅手牌区）、关羽武圣、曹操奸雄及原创奋击I阶开发配置；可执行连续反无懈、暗牌选择、转换牌、多点伤害、濒死救援、伤后技能询问与终局，并在每个决策点保存恢复。新增只使用控制者视图的基础评分AI及整局模拟；Godot战斗界面、完整P0与G0全部验收仍待完成。实际进度见[开发进度](docs/06-开发进度.md)。
 
 ## 开发入口
 
@@ -29,6 +29,10 @@
 # 武圣、奸雄、奋击I阶及八种牌；从伤后技能询问点跨进程继续
 ./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-skills 42 build/skill-battle
 ./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-skills-resume build/skill-battle/skill-trigger.json build/skill-battle/resumed-trigger
+
+# 基础AI对战；逐决策验证恢复，输出动作评分和原因
+./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-ai 42 build/ai-battle
+./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-ai-resume build/ai-battle/ai-decision.json build/ai-battle/resumed-ai
 
 # 来源冻结严格检查；公开开发资料已采集，正式快照尚未冻结，预期返回1
 ./scripts/dotnet.sh run --project tools/Sanguo.ContentValidator -- content --require-frozen
@@ -62,7 +66,7 @@ pwsh -NoProfile -File .\scripts\export-windows.ps1
 
 `export-windows.ps1`优先读取`SANGUO_GODOT`，也可从`.tools/`或`PATH`查找编辑器。开发机有SDK时，随包验收可提供探针运行日志，但不能满足“无开发SDK目标机”验收条件。
 
-若当前执行环境限制写入`.git`，可用`pwsh -NoProfile -File .\scripts\git-writable.ps1 <git参数>`在同一工作树运行Git；入口将元数据镜像到忽略提交的`.tools/`，并在检测到本会话的无效代理时直连GitHub。普通终端的Git不需要此入口。
+当前Windows开发机已移除`.git`的显式拒绝写入规则，并将普通Git同步到远程提交，可直接使用普通Git。历史受限环境的`git-writable.ps1`会使用独立的`.tools/`元数据镜像，该镜像不会自动跟随普通Git更新；本机后续开发使用原生`.git`。
 
 `Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`原入口仍验证抽样；`--battle-basic`、`--battle-tricks`和`--battle-hand-tricks`分别使用三牌、六牌、八牌合成场景，`--battle-skills`加入技能开发配置，均使用`rules.basic-development.v4`，不加载正式OL武将内容包或G0声明牌。拆顺与武圣当前只支持手牌成本，尚无装备区和判定区。基础战斗开发快照已升至格式4，旧格式1至3明确拒绝为不兼容；G0存档不变。Godot场景仍为抽牌探针。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。规则边界、快照和复现步骤见[基础战斗开发规则](docs/10-基础战斗开发规则.md)及[技能开发规则](docs/11-技能开发规则.md)。
 

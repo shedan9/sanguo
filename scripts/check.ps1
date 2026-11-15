@@ -81,7 +81,8 @@ try {
         @('battle-tricks', 'battle-tricks-resume', 'trick-battle', 'duel-response.json', 'resumed-duel'),
         @('battle-hand-tricks', 'battle-hand-tricks-resume', 'hand-trick-battle', 'hand-choice.json', 'resumed-hand'),
         @('battle-skills', 'battle-skills-resume', 'skill-battle', 'skill-trigger.json', 'resumed-trigger'),
-        @('battle-skills', 'battle-skills-resume', 'skill-battle', 'skill-slash.json', 'resumed-slash')
+        @('battle-skills', 'battle-skills-resume', 'skill-battle', 'skill-slash.json', 'resumed-slash'),
+        @('battle-ai', 'battle-ai-resume', 'ai-battle', 'ai-decision.json', 'resumed-ai')
     )
     $completed = @{}
     foreach ($scenario in $scenarios) {

@@ -6,7 +6,8 @@ using Sanguo.Infrastructure.Saves;
 using Sanguo.Simulator;
 
 if (args.Length > 0 && args[0] is "--battle-basic" or "--battle-resume" or "--battle-tricks" or "--battle-tricks-resume"
-    or "--battle-hand-tricks" or "--battle-hand-tricks-resume" or "--battle-skills" or "--battle-skills-resume")
+    or "--battle-hand-tricks" or "--battle-hand-tricks-resume" or "--battle-skills" or "--battle-skills-resume"
+    or "--battle-ai" or "--battle-ai-resume")
     return BasicBattleProbe.Run(args);
 
 if (args.Length is < 1 or > 3 || (args.Length >= 2 && !ulong.TryParse(args[1], NumberStyles.None, CultureInfo.InvariantCulture, out _)))
@@ -40,7 +41,7 @@ try
     Console.WriteLine($"G0抽样试验通过：种子{seed}，共{restored.State.Probe.Hand.Length}张牌，恢复后逐步哈希一致。");
     Console.WriteLine($"存档：{Path.GetFullPath(savePath)}");
     Console.WriteLine($"终态SHA-256：{SnapshotCodec.StateHash(restored.State)}");
-    Console.WriteLine("此入口仅验证G0抽牌；基础战斗使用 --battle-basic，完整P0、武将、AI与OL桌面仍待后续实现。");
+    Console.WriteLine("此入口仅验证G0抽牌；基础战斗使用 --battle-basic，基础AI使用 --battle-ai，完整P0与OL桌面仍待后续实现。");
     return 0;
 }
 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SaveException or InvalidOperationException)

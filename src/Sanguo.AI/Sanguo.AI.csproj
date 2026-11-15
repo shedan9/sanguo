@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Sanguo.BattleCore/Sanguo.BattleCore.csproj" />
+  </ItemGroup>
+</Project>

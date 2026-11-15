@@ -117,7 +117,10 @@ public static partial class BasicBattle
             state.PendingDecision, state.PendingDecision?.ControllerId == controllerId ? GetLegalActions(state) : [],
             state.WinnerTeamId, state.Frames.IsEmpty ? null : new(state.Frames[^1].Kind,
                 state.Frames[^1].SourceId, state.Frames[^1].TargetId, state.Frames[^1].CardId, state.Frames[^1].ChainDepth,
-                state.Frames[^1].SkillId ?? state.Frames[0].SkillId, state.Frames[0].DamageBonus));
+                state.Frames[^1].SkillId ?? state.Frames[0].SkillId, state.Frames[0].DamageBonus,
+                state.Frames[^1].Kind == EffectKind.Nullification
+                    ? new(state.Frames[0].SourceId, state.Frames[0].TargetId, state.Frames[0].CardId,
+                        state.Processing.Single(c => c.InstanceId == state.Frames[0].CardId).Kind) : null));
 
     public static int Distance(BattleState state, string sourceId, string targetId)
     {

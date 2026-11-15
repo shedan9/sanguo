@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Sanguo.AI/Sanguo.AI.csproj" />
     <Project Path="src/Sanguo.Application/Sanguo.Application.csproj" />
     <Project Path="src/Sanguo.BattleCore/Sanguo.BattleCore.csproj" />
     <Project Path="src/Sanguo.CampaignCore/Sanguo.CampaignCore.csproj" />

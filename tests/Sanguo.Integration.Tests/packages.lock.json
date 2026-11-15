@@ -93,6 +93,12 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
+      "sanguo.ai": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.BattleCore": "[1.0.0, )"
+        }
+      },
       "sanguo.application": {
         "type": "Project",
         "dependencies": {
