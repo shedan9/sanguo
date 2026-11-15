@@ -4,7 +4,7 @@
   "capturedAt": "2026-11-12T08:52:01.246337+00:00",
   "status": "development_reference",
   "clientVersion": null,
-  "usage": "开发参照；不随当前运行包分发，公开分发范围待确认。",
+  "usage": "开发参照；关羽、曹操立绘及cards、seat、selfseat图集用于内部客户端验证包，正式内容未接入，公开分发范围待确认。",
   "files": [
     {
       "path": "official/hero.html",

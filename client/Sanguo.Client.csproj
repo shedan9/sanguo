@@ -8,5 +8,17 @@
     <ProjectReference Include="../src/Sanguo.Content/Sanguo.Content.csproj" />
     <ProjectReference Include="../src/Sanguo.Infrastructure/Sanguo.Infrastructure.csproj" />
     <EmbeddedResource Include="../content/cards/g0-probe.json" LogicalName="Sanguo.G0.cards.json" />
+    <!-- Internal development artwork; original files remain in the evidence directory. -->
+    <EmbeddedResource Include="../content/evidence/ol-public-20261112/catalog.json;
+                               ../content/evidence/ol-public-20261112/portraits/guanyu-200.png;
+                               ../content/evidence/ol-public-20261112/portraits/caocao-1500.png;
+                               ../content/evidence/ol-public-20261112/pc/res/assets/game/seat.png;
+                               ../content/evidence/ol-public-20261112/pc/res/assets/game/seat.atlas;
+                               ../content/evidence/ol-public-20261112/pc/res/assets/game/selfseat.png;
+                               ../content/evidence/ol-public-20261112/pc/res/assets/game/selfseat.atlas;
+                               ../content/evidence/ol-public-20261112/pc/res/assets/cards/normal/cards.png;
+                               ../content/evidence/ol-public-20261112/pc/res/assets/cards/normal/cards.atlas">
+      <LogicalName>Sanguo.Ol.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

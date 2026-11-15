@@ -12,7 +12,11 @@ public partial class BattleScreen : Control
     private BattleInteraction _interaction = null!;
     private readonly BasicBattleFileSaveStore _store = new();
     private Label _status = null!, _prompt = null!, _feedback = null!, _preview = null!;
-    private HFlowContainer _hand = null!, _options = null!;
+    private HBoxContainer _hand = null!;
+    private HFlowContainer _options = null!;
+    private DevelopmentBattleArtwork _art = null!;
+    private Label _cardDetail = null!;
+    private readonly Dictionary<Button, BattleCard> _handCards = new();
     private Control _table = null!;
     private Label _tableInfo = null!;
     private OptionButton _playerCount = null!, _opponentCount = null!;
@@ -52,10 +56,12 @@ public partial class BattleScreen : Control
         try
         {
             _interaction = new(DevelopmentBattleScenario.Create());
+            _art = new DevelopmentBattleArtwork();
             BuildInterface();
             Refresh("选择手牌，再选择目标或技能方案，最后确认。取消选择不会消耗牌。");
             if (args.Contains("--battle-smoke")) { RunSmoke(args); return; }
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
+            if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -76,21 +82,19 @@ public partial class BattleScreen : Control
         };
         var margin = new MarginContainer();
         margin.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        foreach (var side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 18);
+        foreach (var side in new[] { "left", "right", "top", "bottom" }) margin.AddThemeConstantOverride("margin_" + side, 12);
         AddChild(margin);
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        margin.AddChild(scroll);
-        var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        column.AddThemeConstantOverride("separation", 8);
-        scroll.AddChild(column);
-        var header = Flow(column);
+        var root = new VBoxContainer();
+        root.AddThemeConstantOverride("separation", 6);
+        margin.AddChild(root);
+        var header = Flow(root);
         header.AddChild(Text("三国行纪 · 战斗桌面", 26, Gold));
         header.AddChild(Button("保存战斗", () => { _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前决策点。"; }));
         header.AddChild(Button("恢复战斗", Restore));
         header.AddChild(Button("新建战斗", NewBattle));
         header.AddChild(Button("战斗记录", () => _logDialog.PopupCentered(new Vector2I(850, 500))));
         header.AddChild(Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")));
-        var setup = new HBoxContainer(); setup.AddThemeConstantOverride("separation", 12); column.AddChild(setup);
+        var setup = new HBoxContainer(); setup.AddThemeConstantOverride("separation", 12); root.AddChild(setup);
         var playerLabel = Text("我方人数", 16); playerLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         playerLabel.AutowrapMode = TextServer.AutowrapMode.Off;
         setup.AddChild(playerLabel);
@@ -100,21 +104,34 @@ public partial class BattleScreen : Control
         setup.AddChild(opponentLabel);
         _opponentCount = TeamSizeOption(); setup.AddChild(_opponentCount);
         _status = Text("", 16); setup.AddChild(_status);
-        _table = new Control { CustomMinimumSize = new Vector2(0, 320), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var scroll = new ScrollContainer { FollowFocus = true, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
+        root.AddChild(scroll);
+        var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        column.AddThemeConstantOverride("separation", 4);
+        scroll.AddChild(column);
+        _table = new Control { CustomMinimumSize = new Vector2(0, 288), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         column.AddChild(_table);
         _prompt = Text("", 22, Gold); column.AddChild(_prompt);
-        _hand = Flow(column);
-        var optionScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 50), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var handScroll = new ScrollContainer { FollowFocus = true, CustomMinimumSize = new Vector2(0, 122), VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        column.AddChild(handScroll);
+        _hand = new HBoxContainer(); _hand.AddThemeConstantOverride("separation", 8); handScroll.AddChild(_hand);
+        var optionScroll = new ScrollContainer { FollowFocus = true, CustomMinimumSize = new Vector2(0, 50), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         column.AddChild(optionScroll);
         _options = Flow(optionScroll);
+        _cardDetail = Text("悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。", 14);
+        _cardDetail.CustomMinimumSize = new Vector2(0, 20);
+        _cardDetail.MaxLinesVisible = 1;
+        _cardDetail.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        root.AddChild(_cardDetail);
         _preview = Text("", 16);
-        var controls = Flow(column);
+        var controls = Flow(root);
         _confirm = Button("确认操作", Confirm); controls.AddChild(_confirm);
         _cancel = Button("取消选择", () => { ClearSelection(); Refresh("已取消选择，战斗状态未改变。"); });
         controls.AddChild(_cancel);
+        _art.StyleDecisionButton(_confirm, true);
+        _art.StyleDecisionButton(_cancel, false);
         controls.AddChild(_preview);
-        _feedback = Text("", 16); column.AddChild(_feedback);
-        column.AddChild(Text("选牌 → 点目标角色框 → 选择技能或成本 → 确认。Tab切换，回车或空格选择，响应不限时。人数设置在新建时生效。", 14));
+        _feedback = Text("", 14); root.AddChild(_feedback);
         GetViewport().GuiEmbedSubwindows = true;
         _logDialog = new AcceptDialog { Title = "战斗记录 · 仅公开信息" };
         AddChild(_logDialog);
@@ -130,7 +147,8 @@ public partial class BattleScreen : Control
     private void Refresh(string message)
     {
         var view = _interaction.View;
-        Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear();
+        Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear(); _handCards.Clear();
+        _cardDetail.Text = "悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。";
         _status.Text = $"当前{view.Combatants.Count(u => u.TeamId == "a")}对{view.Combatants.Count(u => u.TeamId == "b")} · 第 {view.TurnNumber} 回合 · {UnitName(view, view.ActiveUnitId)}    牌堆 {view.DrawCount} · 弃牌 {view.DiscardPile.Length}    "
             + (view.WinnerTeamId is { } winner ? (winner == "a" ? "我方获胜" : "敌方获胜") : "战斗进行中");
         var actorId = view.PendingDecision?.ControllerId == "player" ? view.PendingDecision.ActorId : null;
@@ -156,10 +174,8 @@ public partial class BattleScreen : Control
             var marker = _selectedTarget == unit.EntityId ? " · 已选目标" : targetable ? " · 可选目标"
                 : unit.EntityId == actorId ? " · 操作中" : unit.EntityId == view.ActiveUnitId ? " · 当前回合" : "";
             var skills = string.Join(" / ", unit.Skills.Select(s => s.Definition.Name));
-            var button = Button($"{UnitName(view, unit.EntityId)} · {(unit.TeamId == "a" ? "我方" : "敌方")}\n"
-                + (unit.Alive ? $"体力 {unit.Hp}/{unit.MaxHp} · 手牌 {unit.HandCount}" : "已阵亡")
-                + $"\n座次{unit.SeatId + 1}{marker}" + (skills.Length > 0 ? "\n" + skills : ""), () => SelectTarget(unit.EntityId));
-            button.CustomMinimumSize = new Vector2(158, 90);
+            var button = Button("", () => SelectTarget(unit.EntityId));
+            button.CustomMinimumSize = new Vector2(178, 90);
             button.AddThemeFontSizeOverride("font_size", 15);
             var style = new StyleBoxFlat
             {
@@ -175,9 +191,35 @@ public partial class BattleScreen : Control
             button.TooltipText = string.Join("\n", unit.Skills.Select(s => s.Definition.Name + "：" + s.Definition.Text
                 + (s.Enabled ? "" : "（" + s.InactiveReason + "）")));
             button.Disabled = !targetable;
+            var portrait = _art.Portrait(unit.Profile);
+            var portraitPanel = new Control { Position = new Vector2(4, 4), Size = new Vector2(70, 82), MouseFilter = MouseFilterEnum.Ignore, ClipContents = true };
+            button.AddChild(portraitPanel);
+            if (portrait is not null)
+            {
+                var picture = Picture(portrait, TextureRect.StretchModeEnum.KeepAspectCovered);
+                picture.Modulate = unit.Alive ? Colors.White : new Color(.35f, .35f, .35f);
+                portraitPanel.AddChild(picture);
+            }
+            else
+            {
+                var placeholder = Text(unit.Profile == BattleProfile.ProtagonistFenjiI ? "乡勇" : "乡兵", 20, Gold);
+                placeholder.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+                placeholder.HorizontalAlignment = HorizontalAlignment.Center;
+                placeholder.VerticalAlignment = VerticalAlignment.Center;
+                placeholder.MouseFilter = MouseFilterEnum.Ignore;
+                portraitPanel.AddChild(placeholder);
+            }
+            portraitPanel.AddChild(Picture(_art.SeatFrame));
+            var info = Text(UnitName(view, unit.EntityId) + "\n"
+                + (unit.Alive ? $"体力{unit.Hp}/{unit.MaxHp} 手牌{unit.HandCount}" : "已阵亡")
+                + $"\n{(unit.TeamId == "a" ? "我方" : "敌方")} · 座次{unit.SeatId + 1}\n"
+                + (marker.Length > 0 ? marker.Trim(' ', '·') : skills), 13);
+            info.Position = new Vector2(78, 6); info.Size = new Vector2(96, 78);
+            info.MouseFilter = MouseFilterEnum.Ignore;
+            button.AddChild(info);
             button.AnchorLeft = button.AnchorRight = (float)seat.X;
             button.AnchorTop = button.AnchorBottom = (float)seat.Y;
-            button.OffsetLeft = -79; button.OffsetRight = 79; button.OffsetTop = -45; button.OffsetBottom = 45;
+            button.OffsetLeft = -89; button.OffsetRight = 89; button.OffsetTop = -45; button.OffsetBottom = 45;
             _table.AddChild(button);
             _seatButtons.Add(unit.EntityId, button);
         }
@@ -191,15 +233,13 @@ public partial class BattleScreen : Control
             foreach (var card in actor.VisibleHand)
             {
                 var legal = view.LegalActions.Any(a => a.CardId == card.InstanceId);
-                var button = Button(Card(card) + (card.InstanceId == _selectedCard ? " ✓" : ""), () =>
+                var button = CreateCardButton(card, legal, () =>
                 {
                     ClearSelection(); _selectedCard = card.InstanceId;
                     Refresh("已选牌，请选择目标或技能方案。确认前可以取消或重选。");
                 });
-                button.CustomMinimumSize = new Vector2(122, 72);
-                button.Disabled = !legal;
-                button.TooltipText = legal ? "选择此牌后查看合法目标与技能方案。" : "当前时机无合法动作。";
                 _hand.AddChild(button);
+                _handCards.Add(button, card);
             }
             foreach (var action in view.LegalActions.Where(a => (a.CardId is null || a.CardId == _selectedCard)
                 && (_selectedTarget is null || a.TargetId == _selectedTarget || a.TargetId is null)))
@@ -406,6 +446,71 @@ public partial class BattleScreen : Control
     private static string Card(BattleCard card) => (card.Suit switch
     { "spade" => "♠", "heart" => "♥", "club" => "♣", "diamond" => "♦", _ => "" }) + card.Rank + " " + CardName(card.Kind);
 
+    private static TextureRect Picture(Texture2D texture, TextureRect.StretchModeEnum stretch = TextureRect.StretchModeEnum.Scale)
+    {
+        var picture = new TextureRect { Texture = texture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = stretch, MouseFilter = MouseFilterEnum.Ignore };
+        picture.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        return picture;
+    }
+
+    private Button CreateCardButton(BattleCard card, bool legal, Action select)
+    {
+        var selected = card.InstanceId == _selectedCard;
+        var button = Button("", select);
+        button.CustomMinimumSize = new Vector2(82, 112);
+        button.Disabled = !legal;
+        var border = new StyleBoxFlat { BgColor = new Color("3C3B32"), BorderColor = selected ? Gold : new Color("777264"),
+            BorderWidthLeft = selected ? 3 : 1, BorderWidthRight = selected ? 3 : 1,
+            BorderWidthTop = selected ? 3 : 1, BorderWidthBottom = selected ? 3 : 1 };
+        button.AddThemeStyleboxOverride("normal", border);
+        button.AddThemeStyleboxOverride("disabled", border);
+        var content = new Control { MouseFilter = MouseFilterEnum.Ignore, Modulate = legal ? Colors.White : new Color(.48f, .48f, .48f) };
+        content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        content.OffsetLeft = 5; content.OffsetRight = -5; content.OffsetTop = 6; content.OffsetBottom = -6;
+        button.AddChild(content);
+        content.AddChild(Picture(_art.CardFace(card.Kind)));
+        var captionBackground = new ColorRect { Color = Paper, MouseFilter = MouseFilterEnum.Ignore };
+        captionBackground.AnchorTop = 1; captionBackground.AnchorBottom = 1; captionBackground.AnchorRight = 1;
+        captionBackground.OffsetTop = -23;
+        content.AddChild(captionBackground);
+        var caption = Text(CardName(card.Kind) + (selected ? " ✓" : ""), 12, Ink);
+        caption.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); caption.HorizontalAlignment = HorizontalAlignment.Center;
+        caption.MouseFilter = MouseFilterEnum.Ignore; captionBackground.AddChild(caption);
+        var rank = Text((card.Suit switch { "spade" => "♠", "heart" => "♥", "club" => "♣", "diamond" => "♦", _ => "?" })
+            + "\n" + (card.Rank switch { 1 => "A", 11 => "J", 12 => "Q", 13 => "K", _ => card.Rank.ToString() }), 16,
+            card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
+        rank.Position = new Vector2(3, 2); rank.Size = new Vector2(24, 44);
+        rank.HorizontalAlignment = HorizontalAlignment.Center; rank.MouseFilter = MouseFilterEnum.Ignore;
+        var rankBackground = new ColorRect { Position = rank.Position, Size = rank.Size, Color = Paper, MouseFilter = MouseFilterEnum.Ignore };
+        content.AddChild(rankBackground); content.AddChild(rank);
+        var details = Card(card) + " · " + (card.Kind switch
+        {
+            BasicCardKind.Slash => "对合法目标使用，造成伤害；也可响应决斗。",
+            BasicCardKind.Dodge => "响应杀，抵消本次杀。",
+            BasicCardKind.Peach => "受伤时自疗，或在濒死请求中救援，回复1点体力。",
+            BasicCardKind.Duel => "与目标轮流打出杀，先放弃者受到伤害。",
+            BasicCardKind.ExNihilo => "对自己使用，摸2张牌。",
+            BasicCardKind.Nullification => "抵消当前锦囊效果或当前无懈；可连续反制。",
+            BasicCardKind.Dismantlement => "弃置目标1张暗手牌（开发范围仅手牌区）。",
+            BasicCardKind.Snatch => "获得距离内目标1张暗手牌（开发范围仅手牌区）。",
+            _ => ""
+        }) + (legal ? " 可选择；具体目标、转换技能与成本以合法方案为准。" : " 当前无合法动作。");
+        button.TooltipText = details;
+        var hovering = false;
+        void UpdateHighlight()
+        {
+            var highlight = hovering || button.HasFocus();
+            content.OffsetTop = highlight ? 2 : 6; content.OffsetBottom = highlight ? -10 : -6;
+            _cardDetail.Text = highlight ? details : "悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。";
+        }
+        button.MouseEntered += () => { hovering = true; UpdateHighlight(); };
+        button.MouseExited += () => { hovering = false; UpdateHighlight(); };
+        button.FocusEntered += UpdateHighlight;
+        button.FocusExited += UpdateHighlight;
+        return button;
+    }
+
     private static Label Text(string value, int size = 18, Color? color = null)
     {
         var label = new Label { Text = value, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -570,7 +675,7 @@ public partial class BattleScreen : Control
         try
         {
             if (args.Length is not (2 or 4 or 5) || !Path.IsPathFullyQualified(args[1]))
-                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log]]");
+                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected]]");
             if (args.Length >= 4)
             {
                 var players = int.Parse(args[2]); var opponents = int.Parse(args[3]);
@@ -581,14 +686,81 @@ public partial class BattleScreen : Control
             _aiTimer.Stop();
             if (args.Length == 5)
             {
-                if (args[4] != "log") throw new ArgumentException("未知预览模式。");
-                _logDialog.PopupCentered(new Vector2I(850, 500));
+                if (args[4] == "log") _logDialog.PopupCentered(new Vector2I(850, 500));
+                else if (args[4] == "selected")
+                {
+                    _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.TargetId is not null))
+                        .Key.EmitSignal(BaseButton.SignalName.Pressed);
+                    _handCards.First(p => p.Value.InstanceId == _selectedCard).Key.EmitSignal(Control.SignalName.MouseEntered);
+                }
+                else throw new ArgumentException("未知预览模式。");
             }
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             var error = GetViewport().GetTexture().GetImage().SavePng(args[1]);
             GD.Print("BATTLE_PREVIEW " + error);
             GetTree().Quit(error == Error.Ok ? 0 : 1);
+        }
+        catch (Exception ex) { GD.PushError(ex.ToString()); GetTree().Quit(1); }
+    }
+
+    private async Task RunArtworkSmoke()
+    {
+        _aiTimer.Stop();
+        try
+        {
+            foreach (var kind in Enum.GetValues<BasicCardKind>())
+                if (_art.CardFace(kind).GetSize() != new Vector2(186, 260)) throw new InvalidOperationException("卡面尺寸错误：" + kind);
+            if (_art.Guanyu.GetSize() != new Vector2(750, 950) || _art.Caocao.GetSize() != new Vector2(750, 950)
+                || _art.SeatFrame.GetSize() != new Vector2(304, 356) || _art.Portrait(BattleProfile.Generic) is not null
+                || _art.Portrait(BattleProfile.ProtagonistFenjiI) is not null)
+                throw new InvalidOperationException("人物图像映射错误。");
+            var inspected = 0;
+            foreach (var width in new[] { 960, 1280 })
+            {
+                GetWindow().Size = new Vector2I(width, width == 960 ? 600 : 720);
+                Refresh("开发素材交互回归");
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                var viewport = new Rect2(Vector2.Zero, GetViewportRect().Size);
+                if (!viewport.Encloses(_confirm.GetGlobalRect()) || !viewport.Encloses(_cancel.GetGlobalRect()))
+                    throw new InvalidOperationException("确认或取消按钮超出窗口。");
+                var before = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
+                var actor = _interaction.View.Combatants.Single(u => u.EntityId == _interaction.View.PendingDecision!.ActorId);
+                if (!_handCards.Values.SequenceEqual(actor.VisibleHand)) throw new InvalidOperationException("手牌图像未绑定当前操作角色。");
+                foreach (var (button, card) in _handCards)
+                {
+                    var body = _table.GetParent().GetParent<ScrollContainer>();
+                    if (!body.GetGlobalRect().Encloses(button.GetGlobalRect()))
+                        throw new InvalidOperationException("初始手牌卡面被桌面滚动区裁切。");
+                    button.EmitSignal(Control.SignalName.MouseEntered);
+                    if (!_cardDetail.Text.StartsWith(Card(card), StringComparison.Ordinal)) throw new InvalidOperationException("悬停说明与牌面不一致。");
+                    button.EmitSignal(Control.SignalName.MouseExited);
+                    if (!button.Disabled)
+                    {
+                        button.GrabFocus();
+                        if (!_cardDetail.Text.StartsWith(Card(card), StringComparison.Ordinal)) throw new InvalidOperationException("键盘聚焦未显示牌信息。");
+                        button.ReleaseFocus();
+                    }
+                    inspected++;
+                }
+                if (_interaction.Selection is not null || before != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot))
+                    throw new InvalidOperationException("查看卡面改变了选择或战斗状态。");
+            }
+            // Synthetic display-only copies exercise keyboard access beyond the horizontal viewport.
+            var hash = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
+            var sample = _handCards.Values.First();
+            for (var i = 0; i < 24; i++) _hand.AddChild(CreateCardButton(sample, true, () => { }));
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            _hand.GetChild<Button>(-1).GrabFocus();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var handScroll = _hand.GetParent<ScrollContainer>();
+            if (handScroll.ScrollHorizontal <= 0 || !handScroll.GetGlobalRect().Encloses(_hand.GetChild<Button>(-1).GetGlobalRect())
+                || hash != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot))
+                throw new InvalidOperationException("长手牌键盘聚焦没有滚动到可见区域，或改变了战斗状态。");
+            GD.Print($"BATTLE_ARTWORK_SMOKE_OK cards=8 portraits=2 inspected={inspected}");
+            GetTree().Quit();
         }
         catch (Exception ex) { GD.PushError(ex.ToString()); GetTree().Quit(1); }
     }

@@ -56,7 +56,8 @@ def package(root=ROOT):
     built_on = platform.system() + "-" + ("x64" if platform.machine().lower() in {"amd64", "x86_64"} else platform.machine().lower())
     (OUTPUT / "验收说明.txt").write_text(
         "三国行纪 G0 Windows x64内部验证包\n\n"
-        "范围：G0固定种子抽牌及2对2文字战斗开发原型；完整P0与OL视觉还原未完成，无正式OL人物或素材。\n"
+        "范围：G0固定种子抽牌及双方各1至4人的战斗开发原型，默认2对2；完整P0与OL视觉还原未完成。\n"
+        "美术：内嵌已采集的关羽、曹操立绘与PC武将框、八种卡面和按钮图集，仅供内部开发验证；正式人物内容未接入，公开分发范围待确认。\n"
         "请复制整个目录，保留data_Sanguo.Client_windows_x86_64及licenses。\n"
         "包含.NET 10运行时；无开发SDK设备能否运行仍待Windows真机确认。\n\n"
         "人工验证：\n"
@@ -81,6 +82,7 @@ def package(root=ROOT):
                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
     manifest = {"scope": "g0-probe", "engine": "0.1.0-g0", "godot": "4.7.2",
                 "developmentScopes": ["g0-probe", "client-battle-development.v1"],
+                "artworkUsage": "internal-development-only",
                 "sdk": "10.0.404", "target": "win-x64", "builtOn": built_on,
                 "testedOnWindows": False, "exportWarnings": export_warnings, "files": hashes}
     (OUTPUT / "package-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
