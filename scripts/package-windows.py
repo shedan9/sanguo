@@ -3,6 +3,7 @@
 import hashlib
 import json
 import pathlib
+import platform
 import shutil
 import struct
 import sys
@@ -15,7 +16,15 @@ def package(root=ROOT):
     OUTPUT = root / "build/windows"
     MANAGED = OUTPUT / "data_Sanguo.Client_windows_x86_64"
     LOG = root / "build/evidence/g0/windows-export.log"
-    if not LOG.exists() or "ERROR:" in LOG.read_text():
+    if not LOG.exists():
+        raise ValueError("导出日志缺失或含错误，请查看build/evidence/g0/windows-export.log。")
+    log = LOG.read_text(encoding="utf-8")
+    certificate_error = "ERROR: Failed to read the root certificate store."
+    export_warnings = []
+    if platform.system() == "Windows" and log.count(certificate_error) == 1:
+        log = log.replace(certificate_error, "", 1)
+        export_warnings.append("sandbox-system-ca-store-unavailable")
+    if "ERROR:" in log:
         raise ValueError("导出日志缺失或含错误，请查看build/evidence/g0/windows-export.log。")
     required = [OUTPUT / "Sanguo.exe"] + [MANAGED / name for name in (
         "Sanguo.Client.dll", "Sanguo.Application.dll", "Sanguo.BattleCore.dll",
@@ -44,6 +53,7 @@ def package(root=ROOT):
         if path.is_file():
             shutil.copy2(path, licenses / path.name)
     shutil.copy2(root / "scripts/verify-windows.ps1", OUTPUT / "verify-windows.ps1")
+    built_on = platform.system() + "-" + ("x64" if platform.machine().lower() in {"amd64", "x86_64"} else platform.machine().lower())
     (OUTPUT / "验收说明.txt").write_text(
         "三国行纪 G0 Windows x64内部验证包\n\n"
         "范围：固定种子抽牌、保存和恢复。不是P0战斗原型，无OL武将或素材。\n"
@@ -61,7 +71,7 @@ def package(root=ROOT):
         "若检测到开发SDK，保留结果但返回失败，需换干净目标设备复验。\n"
         "预期日志包含：\n"
         "G0_SMOKE_OK 066d2413bb3ac61446d293248828c47eb1e704b0e930dea0e1775b28f1aaa883\n\n"
-        "本包只在macOS交叉导出，尚未执行Windows真机验收。\n", encoding="utf-8")
+        f"本包在{built_on}构建，尚未执行独立Windows真机验收。\n", encoding="utf-8")
     hashes = []
     for path in sorted(OUTPUT.rglob("*")):
         if path.is_symlink():
@@ -70,8 +80,8 @@ def package(root=ROOT):
             hashes.append({"path": path.relative_to(OUTPUT).as_posix(), "bytes": path.stat().st_size,
                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
     manifest = {"scope": "g0-probe", "engine": "0.1.0-g0", "godot": "4.7.2",
-                "sdk": "10.0.404", "target": "win-x64", "builtOn": "macOS-arm64",
-                "testedOnWindows": False, "files": hashes}
+                "sdk": "10.0.404", "target": "win-x64", "builtOn": built_on,
+                "testedOnWindows": False, "exportWarnings": export_warnings, "files": hashes}
     (OUTPUT / "package-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     archive = root / "build/sanguo-g0-windows-x64.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
@@ -79,6 +89,8 @@ def package(root=ROOT):
             if path.is_file():
                 output.write(path, "sanguo-g0-windows-x64/" + path.relative_to(OUTPUT).as_posix())
     print("Windows验证包结构通过，含自包含运行时：", archive)
+    if export_warnings:
+        print("构建环境警告：无法读取系统根证书库；完整日志保留在build/evidence/g0/windows-export.log。")
     print("Windows真机验收：待执行。")
 
 

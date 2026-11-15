@@ -4,9 +4,9 @@ import copy
 import importlib.util
 import io
 from pathlib import Path
-import tempfile
 import unittest
 from unittest.mock import patch
+from workspace_temp import workspace_directory
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("collect_ol", ROOT / "scripts/collect-ol-sources.py")
@@ -54,13 +54,17 @@ class CollectOlSourcesTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "标准武将属性映射"):
                 COLLECTOR.verify(CAPTURE)
 
-    def test_paths_cannot_escape_capture_or_follow_symlinks(self):
+    def test_paths_cannot_escape_capture(self):
         for relative in ("../outside", "/tmp/outside", "folder/../../outside"):
             with self.subTest(relative=relative), self.assertRaises(ValueError):
                 COLLECTOR.safe_path(CAPTURE, relative)
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            (root / "link").symlink_to(CAPTURE, target_is_directory=True)
+
+    def test_paths_cannot_follow_symlinks(self):
+        with workspace_directory() as root:
+            try:
+                (root / "link").symlink_to(CAPTURE, target_is_directory=True)
+            except (OSError, NotImplementedError) as error:
+                self.skipTest(f"当前主机不允许创建符号链接：{error}")
             with self.assertRaisesRegex(ValueError, "符号链接"):
                 COLLECTOR.safe_path(root, "link/catalog.json")
 

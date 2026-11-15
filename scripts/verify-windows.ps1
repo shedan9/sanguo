@@ -45,16 +45,28 @@ function Invoke-Probe([string]$Name, [string]$ProbeArguments, [string]$Marker) {
 
 try {
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'Run this script on Windows 11 x64.' }
-    $os = Get-CimInstance Win32_OperatingSystem
-    $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
-    $report.device = [ordered]@{ system = $os.Caption; version = $os.Version; build = $os.BuildNumber; architecture = $os.OSArchitecture; cpu = $cpu.Name; cpuArchitecture = $cpu.Architecture }
-    if ([int]$os.BuildNumber -lt 22000 -or $cpu.Architecture -ne 9) { throw 'The G0 target is Windows 11 x64 on an x64 CPU.' }
+    # CIM can be disabled on locked-down target machines. The OS and CPU checks
+    # use process-independent .NET APIs; CIM only adds a friendly device name.
+    $version = [Environment]::OSVersion.Version
+    $architecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    $system = 'Windows'
+    $cpuName = $env:PROCESSOR_IDENTIFIER
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+        $system = $os.Caption
+        if ($null -ne $cpu) { $cpuName = $cpu.Name }
+    }
+    catch { $report.deviceInventoryNote = 'CIM unavailable; OS and architecture verified using .NET.' }
+    $report.device = [ordered]@{ system = $system; version = $version.ToString(); build = $version.Build; architecture = $architecture; cpu = $cpuName }
+    if ($version.Build -lt 22000 -or $architecture -ne 'X64') { throw 'The G0 target is Windows 11 x64 on an x64 CPU.' }
     $dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
     $report.sdkInventory = @()
     if ($null -ne $dotnet) {
-        $sdkOutput = @(& $dotnet.Source --list-sdks 2>&1)
-        if ($LASTEXITCODE -ne 0) { throw 'Unable to determine installed .NET SDKs.' }
-        $report.sdkInventory = @($sdkOutput | ForEach-Object { "$_" } | Where-Object { $_.Trim().Length -gt 0 })
+        $pathSdkDirectory = Join-Path (Split-Path -Parent $dotnet.Source) 'sdk'
+        if (Test-Path -LiteralPath $pathSdkDirectory -PathType Container) {
+            $report.sdkInventory = @(Get-ChildItem -LiteralPath $pathSdkDirectory -Directory | ForEach-Object { $_.FullName })
+        }
     }
     $report.sdkAbsent = $report.sdkInventory.Count -eq 0
     $report.sdkDirectories = @()

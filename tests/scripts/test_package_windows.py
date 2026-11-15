@@ -5,10 +5,12 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import platform
 import struct
-import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
+from workspace_temp import workspace_directory
 
 SPEC = importlib.util.spec_from_file_location("package_windows", Path(__file__).resolve().parents[2] / "scripts/package-windows.py")
 PACKAGER = importlib.util.module_from_spec(SPEC)
@@ -17,9 +19,9 @@ SPEC.loader.exec_module(PACKAGER)
 
 class PackageWindowsTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.temporary = workspace_directory()
+        self.root = self.temporary.__enter__()
+        self.addCleanup(self.temporary.__exit__, None, None, None)
         self.output = self.root / "build/windows"
         self.managed = self.output / "data_Sanguo.Client_windows_x86_64"
         self.managed.mkdir(parents=True)
@@ -29,7 +31,7 @@ class PackageWindowsTests(unittest.TestCase):
         self.config.write_text(json.dumps({"runtimeOptions": {"tfm": "net10.0", "includedFrameworks": [{"name": "Microsoft.NETCore.App", "version": "10.0.15"}]}}))
         self.log = self.root / "build/evidence/g0/windows-export.log"
         self.log.parent.mkdir(parents=True)
-        self.log.write_text("synthetic export success")
+        self.log.write_text("synthetic export 成功", encoding="utf-8")
         (self.root / "scripts").mkdir()
         (self.root / "scripts/verify-windows.ps1").write_text("# synthetic script")
         (self.root / "third-party").mkdir()
@@ -52,6 +54,8 @@ class PackageWindowsTests(unittest.TestCase):
         self.assertEqual(first, (self.output / "package-manifest.json").read_bytes())
         manifest = json.loads(first)
         self.assertFalse(manifest["testedOnWindows"])
+        self.assertEqual(manifest["exportWarnings"], [])
+        self.assertEqual(manifest["builtOn"], platform.system() + "-" + ("x64" if platform.machine().lower() in {"amd64", "x86_64"} else platform.machine().lower()))
         paths = {entry["path"] for entry in manifest["files"]}
         self.assertIn("verify-windows.ps1", paths)
         self.assertIn("licenses/NOTICE.txt", paths)
@@ -80,6 +84,16 @@ class PackageWindowsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "导出日志"):
             self.package()
 
+    def test_records_only_known_windows_certificate_error(self):
+        self.log.write_text("ERROR: Failed to read the root certificate store.\nsynthetic export success", encoding="utf-8")
+        with patch.object(PACKAGER.platform, "system", return_value="Windows"):
+            self.package()
+        manifest = json.loads((self.output / "package-manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["exportWarnings"], ["sandbox-system-ca-store-unavailable"])
+        self.log.write_text("ERROR: Failed to read the root certificate store.\nERROR: build failed", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "导出日志"):
+            self.package()
+
     def test_rejects_missing_runtime(self):
         (self.managed / "coreclr.dll").unlink()
         with self.assertRaisesRegex(ValueError, "缺少导出文件"):
@@ -91,7 +105,10 @@ class PackageWindowsTests(unittest.TestCase):
             self.package()
 
     def test_rejects_symlinks(self):
-        (self.output / "linked.dll").symlink_to(self.managed / "coreclr.dll")
+        try:
+            (self.output / "linked.dll").symlink_to(self.managed / "coreclr.dll")
+        except (OSError, NotImplementedError) as error:
+            self.skipTest(f"当前主机不允许创建符号链接：{error}")
         with self.assertRaisesRegex(ValueError, "符号链接"):
             self.package()
 

@@ -39,6 +39,18 @@ Godot_v4.7.2-stable_mono_export_templates.tpz
 bb5c41d72370ed743660361f6228006f808ab04ca33abdc545d740b044f3fe057f32ae8cb7873a1bc86ddcd82ae683b9f6dfdfe4179852f2c0f1acde2ff6bd5a
 ```
 
+2026-11-15 Windows开发机补充：PowerShell 7.7.0下，将官方Windows x64压缩包按SHA-512校验后安装到仓库忽略的`.tools/dotnet/`和`.tools/Godot_mono/`。SDK为10.0.404，Godot编辑器报告`4.7.2.stable.mono.official.ed1daf0bf`；系统级SDK 10.0.401未改动。Windows包摘要：
+
+```text
+dotnet-sdk-10.0.404-win-x64.zip
+330ddd2665b43cd2e428216a0d8ea1ac7bb19b5434fdc530e62010dc3b52823a620bf95489d628e1ed6f5122401793ee4887cca4a019122361a1231497f632ee
+
+Godot_v4.7.2-stable_mono_win64.zip
+79229fd112b0c9cbeab82363a4ef7be18ea70f1caf86bf912789335b136fbe7e01db0053a33461438c5da1c680c17bbb10040bd09bedc51221cd4423d0367757
+```
+
+Windows验证运行依赖按锁文件从官方NuGet目录取回并校验到项目本地缓存；正式锁文件未改。当前PowerShell 7.7入口执行234项xUnit及全部跨进程场景通过，客户端构建零警告、零错误。Godot无头烟测得到原固定哈希，自包含Windows包完成导出与209项文件清单核对；写档和恢复哈希与macOS基线相同。本会话沙箱无法读取Windows根证书库，打包清单记录警告且自动验收返回1；仍需在非受限独立设备检查引擎日志、离线窗口和无SDK运行。
+
 ## G0证据状态
 
 | 验证 | 状态 |

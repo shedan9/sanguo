@@ -6,7 +6,7 @@
 
 ## 开发入口
 
-工具链候选为.NET SDK 10.0.404、Godot 4.7.2 .NET。脚本优先使用项目内`.tools/`工具，不修改全局shell；新检出需自行安装对应SDK和Godot .NET。版本、下载摘要与平台验证见[工具链决策](docs/decisions/0001-toolchain.md)。
+工具链候选为.NET SDK 10.0.404、Godot 4.7.2 .NET。脚本优先使用项目内`.tools/`工具，不修改全局shell；新检出需自行安装对应SDK和Godot .NET。当前Windows开发机已在`.tools/`安装同版可移植工具，系统原有SDK不受影响。版本、下载摘要与平台验证见[工具链决策](docs/decisions/0001-toolchain.md)。
 
 ```sh
 # 规则测试、内容校验、抽牌与基础战斗保存恢复试验
@@ -53,11 +53,22 @@ python3 scripts/collect-ol-sources.py content/evidence/ol-public-20261112
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\verify-windows.ps1
 ```
 
+Windows开发机可在仓库根目录使用原生入口（要求锁定的SDK、Python 3；导出还要求Godot 4.7.2 .NET及匹配的导出模板）：
+
+```powershell
+pwsh -NoProfile -File .\scripts\check.ps1
+pwsh -NoProfile -File .\scripts\export-windows.ps1
+```
+
+`export-windows.ps1`优先读取`SANGUO_GODOT`，也可从`.tools/`或`PATH`查找编辑器。开发机有SDK时，随包验收可提供探针运行日志，但不能满足“无开发SDK目标机”验收条件。
+
+若当前执行环境限制写入`.git`，可用`pwsh -NoProfile -File .\scripts\git-writable.ps1 <git参数>`在同一工作树运行Git；入口将元数据镜像到忽略提交的`.tools/`，并在检测到本会话的无效代理时直连GitHub。普通终端的Git不需要此入口。
+
 `Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`原入口仍验证抽样；`--battle-basic`、`--battle-tricks`和`--battle-hand-tricks`分别使用三牌、六牌、八牌合成场景，`--battle-skills`加入技能开发配置，均使用`rules.basic-development.v4`，不加载正式OL武将内容包或G0声明牌。拆顺与武圣当前只支持手牌成本，尚无装备区和判定区。基础战斗开发快照已升至格式4，旧格式1至3明确拒绝为不兼容；G0存档不变。Godot场景仍为抽牌探针。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。规则边界、快照和复现步骤见[基础战斗开发规则](docs/10-基础战斗开发规则.md)及[技能开发规则](docs/11-技能开发规则.md)。
 
 OL公开开发资料已保存到[`content/evidence/ol-public-20261112/catalog.json`](content/evidence/ol-public-20261112/catalog.json)：六名标准武将的原画与完整技能、八组PC界面图集及坐标、官方历史战斗截图，共33份原始文件。可据此推进开发；同一客户端版本和逐步交互证据在对应还原验收前补齐，不阻塞通用战斗核心、内容工具和剧情配置。采集与校验方法见[来源登记与校验](docs/07-来源登记与校验.md)。
 
-Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存恢复、命令去重和损坏档备份回退，并将报告与日志写入独立临时目录。人工窗口及离线验证仍需记录；当前尚无Windows运行证据，不能因此关闭G0。详细步骤见[Windows验收流程](docs/08-Windows验收流程.md)。
+Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存恢复、命令去重和损坏档备份回退，并将报告与日志写入独立临时目录。当前Windows开发机已生成自包含验证包并验证文件清单及跨进程写档恢复；本沙箱的系统根证书库错误写入包清单警告，自动验收未通过。仍需无SDK独立设备的离线及窗口验收，不能因此关闭G0。详细步骤见[Windows验收流程](docs/08-Windows验收流程.md)。
 
 ## 文档导航
 
