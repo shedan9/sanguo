@@ -6,6 +6,7 @@ namespace Sanguo.Application;
 public sealed class BattleInteraction
 {
     private BasicBattleSession _session;
+    private long _selectionVersion = -1;
     public string PlayerControllerId { get; }
     public BattleAction? Selection { get; private set; }
     public BattleView View => BasicBattle.Observe(_session.State.Battle, PlayerControllerId);
@@ -20,19 +21,28 @@ public sealed class BattleInteraction
 
     public bool Select(BattleAction action)
     {
-        if (!View.LegalActions.Contains(action)) return false;
+        var view = View;
+        if (!view.LegalActions.Contains(action)) return false;
         Selection = action;
+        _selectionVersion = view.StateVersion;
         return true;
     }
 
-    public void Cancel() => Selection = null;
+    public void Cancel() { Selection = null; _selectionVersion = -1; }
+
+    public System.Collections.Immutable.ImmutableArray<PublicBattleEvent> ReadLog(long afterSequence = 0)
+        => PublicBattleLog.Observe(_session.State.Battle, afterSequence);
 
     public CommandResult Confirm()
     {
         if (Selection is not { } action)
             return new(false, false, "selection.none", "请先选择牌、目标或响应动作。", View.StateVersion);
-        Selection = null;
-        return Submit(action);
+        var version = _selectionVersion;
+        Cancel();
+        var view = View;
+        if (version != view.StateVersion)
+            return new(false, false, "selection.stale", "请求已更新，请重新选择。", view.StateVersion);
+        return Submit(action, view);
     }
 
     public CommandResult? AdvanceAi(Func<BattleView, BattleAction?> choose)
@@ -41,8 +51,8 @@ public sealed class BattleInteraction
         var view = BasicBattle.Observe(_session.State.Battle, View.PendingDecision!.ControllerId);
         var action = choose(view) ?? throw new InvalidOperationException("AI没有返回动作。");
         if (!view.LegalActions.Contains(action)) throw new InvalidOperationException("AI返回非法动作。");
-        Selection = null;
-        return Submit(action);
+        Cancel();
+        return Submit(action, view);
     }
 
     public void Restore(BasicBattleSessionState state)
@@ -51,12 +61,11 @@ public sealed class BattleInteraction
             throw new ArgumentException("恢复场景与当前战斗不匹配。");
         var restored = new BasicBattleSession(state);
         _session = restored;
-        Selection = null;
+        Cancel();
     }
 
-    private CommandResult Submit(BattleAction action)
+    private CommandResult Submit(BattleAction action, BattleView view)
     {
-        var view = View;
         var decision = view.PendingDecision!;
         return _session.Submit(new($"client.command.{view.StateVersion}", view.StateVersion,
             decision.ControllerId, decision.RequestId, decision.ActorId, action));

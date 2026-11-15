@@ -54,6 +54,7 @@ try {
     Invoke-Checked $dotnet @('build', 'client/Sanguo.Client.csproj', '--no-restore', '-m:1', '/p:UseSharedCompilation=false')
     Invoke-Smoke 'write' @('--battle-smoke', 'write', $evidence) 'BATTLE_CLIENT_SMOKE_OK'
     Invoke-Smoke 'resume' @('--battle-smoke', 'resume', $evidence) 'BATTLE_CLIENT_RESUME_OK'
+    Invoke-Smoke 'layout' @('--battle-layout-smoke') 'BATTLE_LAYOUT_SMOKE_OK layouts=32'
     if ((Get-FileDigest (Join-Path $evidence 'final.json')) -cne
         (Get-FileDigest (Join-Path $evidence 'resumed-final.json'))) {
         throw 'Cross-process client battle result differs.'

@@ -27,6 +27,31 @@ public static class DevelopmentBattleScenario
         JsonSerializer.SerializeToUtf8Bytes(new { Scenario = "client.development.v1", BasicBattle.RulesetId,
             Units, Cards, Skills = Units.SelectMany(u => BattleSkills.For(u.Profile)).Distinct().ToArray() })));
 
-    public static BasicBattleSession Create(ulong seed = 42)
-        => BasicBattleSession.Create("battle.client-development", Units, Cards, ContentHash, seed);
+    public static BasicBattleSession Create(ulong seed = 42, int playerCount = 2, int opponentCount = 2)
+        => BasicBattleSession.Create("battle.client-development", GetUnits(playerCount, opponentCount), Cards,
+            HashFor(playerCount, opponentCount), seed);
+
+    public static string HashFor(int playerCount, int opponentCount)
+    {
+        var units = GetUnits(playerCount, opponentCount);
+        return playerCount == 2 && opponentCount == 2 ? ContentHash
+            : Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                Scenario = "client.development.v1", BasicBattle.RulesetId, Units = units, Cards,
+                Skills = units.SelectMany(u => BattleSkills.For(u.Profile)).Distinct().ToArray()
+            })));
+    }
+
+    private static CombatantSetup[] GetUnits(int playerCount, int opponentCount)
+    {
+        if (playerCount is < 1 or > 4) throw new ArgumentOutOfRangeException(nameof(playerCount));
+        if (opponentCount is < 1 or > 4) throw new ArgumentOutOfRangeException(nameof(opponentCount));
+        var units = new List<CombatantSetup>();
+        for (var i = 0; i < Math.Max(playerCount, opponentCount); i++)
+        {
+            if (i < playerCount) units.Add(i < 2 ? Units[i * 2] : new($"generic.a{i + 1}", "player", "a"));
+            if (i < opponentCount) units.Add(i < 2 ? Units[i * 2 + 1] : new($"generic.b{i + 1}", "opponent", "b"));
+        }
+        return units.ToArray();
+    }
 }
