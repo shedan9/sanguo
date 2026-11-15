@@ -23,6 +23,12 @@
           "GodotSharp": "4.7.2"
         }
       },
+      "sanguo.ai": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.BattleCore": "[1.0.0, )"
+        }
+      },
       "sanguo.application": {
         "type": "Project",
         "dependencies": {

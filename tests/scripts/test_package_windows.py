@@ -25,7 +25,7 @@ class PackageWindowsTests(unittest.TestCase):
         self.output = self.root / "build/windows"
         self.managed = self.output / "data_Sanguo.Client_windows_x86_64"
         self.managed.mkdir(parents=True)
-        for name in ("Sanguo.Client.dll", "Sanguo.Application.dll", "Sanguo.BattleCore.dll", "Sanguo.CampaignCore.dll", "Sanguo.Content.dll", "Sanguo.Infrastructure.dll", "coreclr.dll", "hostfxr.dll"):
+        for name in ("Sanguo.Client.dll", "Sanguo.AI.dll", "Sanguo.Application.dll", "Sanguo.BattleCore.dll", "Sanguo.CampaignCore.dll", "Sanguo.Content.dll", "Sanguo.Infrastructure.dll", "coreclr.dll", "hostfxr.dll"):
             (self.managed / name).write_bytes(b"synthetic-test-fixture")
         self.config = self.managed / "Sanguo.Client.runtimeconfig.json"
         self.config.write_text(json.dumps({"runtimeOptions": {"tfm": "net10.0", "includedFrameworks": [{"name": "Microsoft.NETCore.App", "version": "10.0.15"}]}}))
@@ -59,6 +59,8 @@ class PackageWindowsTests(unittest.TestCase):
         paths = {entry["path"] for entry in manifest["files"]}
         self.assertIn("verify-windows.ps1", paths)
         self.assertIn("licenses/NOTICE.txt", paths)
+        self.assertIn("data_Sanguo.Client_windows_x86_64/Sanguo.AI.dll", paths)
+        self.assertIn("client-battle-development.v1", manifest["developmentScopes"])
         for entry in manifest["files"]:
             data = (self.output / entry["path"]).read_bytes()
             self.assertEqual(len(data), entry["bytes"])
@@ -97,6 +99,11 @@ class PackageWindowsTests(unittest.TestCase):
     def test_rejects_missing_runtime(self):
         (self.managed / "coreclr.dll").unlink()
         with self.assertRaisesRegex(ValueError, "缺少导出文件"):
+            self.package()
+
+    def test_rejects_missing_battle_ai_dependency(self):
+        (self.managed / "Sanguo.AI.dll").unlink()
+        with self.assertRaisesRegex(ValueError, "Sanguo.AI.dll"):
             self.package()
 
     def test_rejects_non_self_contained_runtime(self):

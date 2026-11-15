@@ -14,6 +14,12 @@
         "resolved": "4.7.2",
         "contentHash": "EPvfayB7b7MrBNdASvy86jRS5AbM9dprkVivcRD80g+ngn2M8KAIrBQH4NhyQL+pwxni0xVnuqhD9AFpZeNQpw=="
       },
+      "sanguo.ai": {
+        "type": "Project",
+        "dependencies": {
+          "Sanguo.BattleCore": "[1.0.0, )"
+        }
+      },
       "sanguo.application": {
         "type": "Project",
         "dependencies": {

@@ -70,7 +70,7 @@ public partial class ProbeScreen : Control
         heading.AddThemeColorOverride("font_color", Gold);
         column.AddChild(heading);
         column.AddChild(Text("G0 工具链试验", 24));
-        column.AddChild(Text("固定种子抽样与存档恢复。战斗规则、武将和OL桌面尚未实现。", 20));
+        column.AddChild(Text("固定种子抽样与存档恢复。战斗开发原型可从下方入口打开。", 20));
 
         var panel = new PanelContainer();
         panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
@@ -101,6 +101,7 @@ public partial class ProbeScreen : Control
             Refresh(result.Message);
         }));
         buttons.AddChild(ActionButton("新建试验", () => { NewSession(); Refresh("已用种子42新建试验，已有存档保留。"); }));
+        buttons.AddChild(ActionButton("进入战斗原型", () => GetTree().ChangeSceneToFile("res://scenes/Battle.tscn")));
         _feedback = Text("", 20);
         column.AddChild(_feedback);
         column.AddChild(Text("用 Tab 切换操作，空格或回车确认。试验不使用声音或动画。", 18));

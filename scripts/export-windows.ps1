@@ -47,7 +47,7 @@ $exportLog = Join-Path $evidence 'windows-export.log'
 $errorLog = Join-Path $evidence 'windows-export-stderr.log'
 $exportExecutable = Join-Path $output 'Sanguo.exe'
 $arguments = @('--headless', '--path', 'client', '--export-release', '"Windows Desktop"', ('"' + $exportExecutable + '"'))
-$process = Start-Process -FilePath $godot -ArgumentList $arguments -WorkingDirectory $root -PassThru -RedirectStandardOutput $exportLog -RedirectStandardError $errorLog
+$process = Start-Process -FilePath $godot -ArgumentList $arguments -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput $exportLog -RedirectStandardError $errorLog
 try {
     if (-not $process.WaitForExit(600000)) {
         $process.Kill()

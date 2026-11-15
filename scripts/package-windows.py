@@ -27,7 +27,7 @@ def package(root=ROOT):
     if "ERROR:" in log:
         raise ValueError("导出日志缺失或含错误，请查看build/evidence/g0/windows-export.log。")
     required = [OUTPUT / "Sanguo.exe"] + [MANAGED / name for name in (
-        "Sanguo.Client.dll", "Sanguo.Application.dll", "Sanguo.BattleCore.dll",
+        "Sanguo.Client.dll", "Sanguo.AI.dll", "Sanguo.Application.dll", "Sanguo.BattleCore.dll",
         "Sanguo.CampaignCore.dll", "Sanguo.Content.dll", "Sanguo.Infrastructure.dll",
         "Sanguo.Client.runtimeconfig.json", "coreclr.dll", "hostfxr.dll")]
     for path in required:
@@ -56,12 +56,12 @@ def package(root=ROOT):
     built_on = platform.system() + "-" + ("x64" if platform.machine().lower() in {"amd64", "x86_64"} else platform.machine().lower())
     (OUTPUT / "验收说明.txt").write_text(
         "三国行纪 G0 Windows x64内部验证包\n\n"
-        "范围：固定种子抽牌、保存和恢复。不是P0战斗原型，无OL武将或素材。\n"
+        "范围：G0固定种子抽牌及2对2文字战斗开发原型；完整P0与OL视觉还原未完成，无正式OL人物或素材。\n"
         "请复制整个目录，保留data_Sanguo.Client_windows_x86_64及licenses。\n"
         "包含.NET 10运行时；无开发SDK设备能否运行仍待Windows真机确认。\n\n"
         "人工验证：\n"
         "1. 在没有开发SDK的Windows 11 x64设备离线启动Sanguo.exe。\n"
-        "2. 检查中文、四个按钮和Tab焦点。抽3张保存，抽第4张，再恢复应回到3张。\n"
+        "2. 通过G0抽牌试验按钮进入抽样场景，检查中文、抽牌/保存/恢复/新建按钮和Tab焦点。抽3张保存，抽第4张，再恢复应回到3张。\n"
         "3. 重启后恢复同一存档。记录设备、系统、分辨率和结果。\n"
         "4. 在包目录打开PowerShell，执行以下自动验收（仅对本次进程放行脚本）：\n"
         "powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\\verify-windows.ps1\n"
@@ -80,6 +80,7 @@ def package(root=ROOT):
             hashes.append({"path": path.relative_to(OUTPUT).as_posix(), "bytes": path.stat().st_size,
                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
     manifest = {"scope": "g0-probe", "engine": "0.1.0-g0", "godot": "4.7.2",
+                "developmentScopes": ["g0-probe", "client-battle-development.v1"],
                 "sdk": "10.0.404", "target": "win-x64", "builtOn": built_on,
                 "testedOnWindows": False, "exportWarnings": export_warnings, "files": hashes}
     (OUTPUT / "package-manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

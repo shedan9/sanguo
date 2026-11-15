@@ -2,7 +2,7 @@
 
 以《三国杀Online》武将与卡牌规则为基础的三国背景策略单机游戏。玩家从平民出发，自由招募武将，通过武将卡牌战斗攻城略地，选择三种背景之一，经历各自从无名小辈到统一天下的完整故事。《三国行纪》为暂定工作名。
 
-当前阶段：M0/G0进行中，已建立C#工程、内容校验、固定随机流、可保存恢复的抽牌试验与Godot验证场景，三线全程故事大纲已形成制作草稿。战斗开发核心已支持八种牌（拆顺仅手牌区）、关羽武圣、曹操奸雄及原创奋击I阶开发配置；可执行连续反无懈、暗牌选择、转换牌、多点伤害、濒死救援、伤后技能询问与终局，并在每个决策点保存恢复。新增只使用控制者视图的基础评分AI及整局模拟；Godot战斗界面、完整P0与G0全部验收仍待完成。实际进度见[开发进度](docs/06-开发进度.md)。
+当前阶段：M0/G0进行中，已建立C#工程、内容校验、固定随机流、可保存恢复的抽牌试验，三线全程故事大纲已形成制作草稿。战斗开发核心已支持八种牌（拆顺仅手牌区）、关羽武圣、曹操奸雄及原创奋击I阶开发配置；可执行连续反无懈、暗牌选择、转换牌、多点伤害、濒死救援、伤后技能询问与终局，并在每个决策点保存恢复。Godot现已接入2对2玩家对AI的文字战斗原型，支持选牌、目标与技能成本预览、确认取消及战斗存档备份恢复；OL视觉还原、完整P0与G0全部验收仍待完成。实际进度见[开发进度](docs/06-开发进度.md)。
 
 ## 开发入口
 
@@ -44,8 +44,11 @@ python3 scripts/collect-ol-sources.py content/evidence/ol-public-20261112
 ./scripts/dotnet.sh restore client/Sanguo.Client.csproj --locked-mode
 ./scripts/dotnet.sh build client/Sanguo.Client.csproj --no-restore
 
-# 打开验证场景；macOS上的Codex必须经权限流程在沙箱外启动
+# 打开战斗开发原型；上方按钮可切换至G0抽牌试验
 ./scripts/godot.sh --path client
+
+# 客户端编译、真实按钮流程、AI整局、跨进程恢复及G0入口回归
+./scripts/check-client.sh
 
 # 无头验证Godot调用C#命令与文件保存恢复，同样须在沙箱外启动
 ./scripts/godot.sh --headless --path client -- --smoke
@@ -61,6 +64,7 @@ Windows开发机可在仓库根目录使用原生入口（要求锁定的SDK、P
 
 ```powershell
 pwsh -NoProfile -File .\scripts\check.ps1
+pwsh -NoProfile -File .\scripts\check-client.ps1
 pwsh -NoProfile -File .\scripts\export-windows.ps1
 ```
 
@@ -68,7 +72,7 @@ pwsh -NoProfile -File .\scripts\export-windows.ps1
 
 当前Windows开发机已移除`.git`的显式拒绝写入规则，并将普通Git同步到远程提交，可直接使用普通Git。历史受限环境的`git-writable.ps1`会使用独立的`.tools/`元数据镜像，该镜像不会自动跟随普通Git更新；本机后续开发使用原生`.git`。
 
-`Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`原入口仍验证抽样；`--battle-basic`、`--battle-tricks`和`--battle-hand-tricks`分别使用三牌、六牌、八牌合成场景，`--battle-skills`加入技能开发配置，均使用`rules.basic-development.v4`，不加载正式OL武将内容包或G0声明牌。拆顺与武圣当前只支持手牌成本，尚无装备区和判定区。基础战斗开发快照已升至格式4，旧格式1至3明确拒绝为不兼容；G0存档不变。Godot场景仍为抽牌探针。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。规则边界、快照和复现步骤见[基础战斗开发规则](docs/10-基础战斗开发规则.md)及[技能开发规则](docs/11-技能开发规则.md)。
+`Sanguo.slnx`包含不依赖Godot的库、命令行工具及测试；客户端单独构建。`content/cards/g0-probe.json`的八张牌只是技术试验数据，所有效果均标记`declared-only`。`Sanguo.Simulator`原入口仍验证抽样；`--battle-basic`、`--battle-tricks`和`--battle-hand-tricks`分别使用三牌、六牌、八牌合成场景，`--battle-skills`加入技能开发配置，均使用`rules.basic-development.v4`，不加载正式OL武将内容包或G0声明牌。拆顺与武圣当前只支持手牌成本，尚无装备区和判定区。基础战斗开发快照已升至格式4，旧格式1至3明确拒绝为不兼容；G0存档不变。Godot默认进入独立合成战斗场景，不与模拟器场景混读；战斗档位于`user://battle-development/session.json`，保存保留上一份有效`.bak`。客户端烟测参数为`--battle-smoke write|resume <专用目录绝对路径>`，只供回归使用；正常游戏由玩家操作两名友军，敌方AI每0.35秒推进一个决策，玩家响应不限时。OL规则、武将和界面来源清单仍待实证冻结，内容校验通过不代表来源或M1验收通过。规则边界、快照和复现步骤见[基础战斗开发规则](docs/10-基础战斗开发规则.md)及[技能开发规则](docs/11-技能开发规则.md)。
 
 OL公开开发资料已保存到[`content/evidence/ol-public-20261112/catalog.json`](content/evidence/ol-public-20261112/catalog.json)：六名标准武将的原画与完整技能、八组PC界面图集及坐标、官方历史战斗截图，共33份原始文件。可据此推进开发；同一客户端版本和逐步交互证据在对应还原验收前补齐，不阻塞通用战斗核心、内容工具和剧情配置。采集与校验方法见[来源登记与校验](docs/07-来源登记与校验.md)。
 

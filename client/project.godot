@@ -3,7 +3,7 @@ config_version=5
 
 [application]
 config/name="三国行纪 · G0试验"
-run/main_scene="res://scenes/Probe.tscn"
+run/main_scene="res://scenes/Battle.tscn"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 
 [display]

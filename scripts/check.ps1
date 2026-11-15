@@ -46,8 +46,12 @@ function Assert-SameFile([string]$Left, [string]$Right) {
     if (-not (Test-Path -LiteralPath $Left -PathType Leaf) -or -not (Test-Path -LiteralPath $Right -PathType Leaf)) {
         throw "缺少恢复结果：$Left 或 $Right"
     }
-    $first = (Get-FileHash -LiteralPath $Left -Algorithm SHA256).Hash
-    $second = (Get-FileHash -LiteralPath $Right -Algorithm SHA256).Hash
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    try {
+        $first = [BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes($Left)))
+        $second = [BitConverter]::ToString($hasher.ComputeHash([IO.File]::ReadAllBytes($Right)))
+    }
+    finally { $hasher.Dispose() }
     if ($first -cne $second) { throw "跨进程恢复结果不一致：$Left 与 $Right" }
 }
 

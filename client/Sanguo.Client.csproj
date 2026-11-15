@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../src/Sanguo.AI/Sanguo.AI.csproj" />
     <ProjectReference Include="../src/Sanguo.Content/Sanguo.Content.csproj" />
     <ProjectReference Include="../src/Sanguo.Infrastructure/Sanguo.Infrastructure.csproj" />
     <EmbeddedResource Include="../content/cards/g0-probe.json" LogicalName="Sanguo.G0.cards.json" />
