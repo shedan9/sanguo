@@ -84,12 +84,11 @@ public partial class BattleScreen
             + (item.SourceId is null ? "" : $" · {UnitName(view, item.SourceId)} → {UnitName(view, item.TargetId ?? item.SourceId)}")
             + (item.RespondsToCardId is null ? "" : " · 抵消" + Card(view.Processing.Single(c => c.InstanceId == item.RespondsToCardId)))
             + "。仅展示，不提交操作。";
-        tile.TooltipText = details;
-        tile.MouseEntered += () => _cardDetail.Text = details;
+        BindCardInspection(tile, item.Card, details);
         tile.FocusEntered += () =>
         {
             border.BorderWidthLeft = border.BorderWidthRight = border.BorderWidthTop = border.BorderWidthBottom = 3;
-            _cardDetail.Text = details; _ = RevealBattleFocus(tile);
+            _ = RevealBattleFocus(tile);
         };
         tile.FocusExited += () => border.BorderWidthLeft = border.BorderWidthRight = border.BorderWidthTop = border.BorderWidthBottom = 1;
         return tile;
@@ -130,6 +129,7 @@ public partial class BattleScreen
                             if (!_cardDetail.Text.Contains(Card(card.Card), StringComparison.Ordinal)
                                 || !control.GetParent().GetParent<ScrollContainer>().GetGlobalRect().Encloses(control.GetGlobalRect()))
                                 throw new InvalidOperationException("处理区聚焦卡面或说明不可见。");
+                            CheckCardInspection(control, card.Card);
                             inspected++;
                         }
                         if (hash != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot) || _interaction.Selection is not null)

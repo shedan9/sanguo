@@ -191,12 +191,6 @@ public partial class BattleScreen
                 + " / version=" + _interaction.View.StateVersion);
     }
 
-    private static IEnumerable<ScrollContainer> AncestorScrolls(Node node)
-    {
-        for (var parent = node.GetParent(); parent is not null; parent = parent.GetParent())
-            if (parent is ScrollContainer scroll) yield return scroll;
-    }
-
     private async Task TapKeyboard(Key key, bool shift = false, bool echo = false)
     {
         var windowId = GetWindow().GetWindowId();
@@ -207,7 +201,7 @@ public partial class BattleScreen
         _keyboardTaps++;
     }
 
-    private Viewport KeyboardViewport() => _helpDialog.Visible ? _helpDialog : _logDialog.Visible ? _logDialog : GetViewport();
+    private Viewport KeyboardViewport() => _handDialog.Visible ? _handDialog : _helpDialog.Visible ? _helpDialog : _logDialog.Visible ? _logDialog : GetViewport();
 
     private async Task KeyboardFrame()
     {

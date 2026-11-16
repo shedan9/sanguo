@@ -20,6 +20,13 @@ public partial class BattleScreen
     {
         if (input is InputEventKey { Pressed: true, Echo: false } or InputEventMouseButton { Pressed: true })
             _automaticWaitingFocus = false;
+        if (input is InputEventKey { Keycode: Key.Escape, Pressed: true, Echo: false }
+            && !BattleDialogVisible && _inspectionPanel.Visible)
+        {
+            _inspectionDismissed = true;
+            _inspectionPanel.Hide();
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     private void BuildKeyboardHelp()
@@ -31,6 +38,8 @@ public partial class BattleScreen
             + "选好目标与技能成本后，核对预览，再按“确认操作”。\n"
             + "“取消选择”不消耗牌，焦点返回原手牌。\n"
             + "放弃响应、结束出牌和弃牌均在操作方案中选择，再确认。\n\n"
+            + "悬停或聚焦卡面可展开详情，Esc收起；查看不出牌。\n"
+            + "“手牌一览”可用方向键逐张查看，包括当前不可用的牌。\n"
             + "处理区卡面可聚焦查看；手牌、目标和方案随焦点滚动。\n"
             + "战斗记录可用Tab聚焦滚动条，按方向键上下查看历史。\n"
             + "战斗记录和本说明均可聚焦关闭按钮返回。\n"
@@ -74,7 +83,7 @@ public partial class BattleScreen
         var revision = ++_focusRevision;
         Callable.From(() =>
         {
-            if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || revision != _focusRevision || _helpDialog.Visible || _logDialog.Visible) return;
+            if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || revision != _focusRevision || BattleDialogVisible) return;
             var preserved = CanFocus(stableControl);
             var control = preserved ? stableControl : ResolveBattleFocus(request);
             _automaticWaitingFocus = !preserved && _interaction.WaitingForAi && control == _helpButton;
@@ -109,7 +118,7 @@ public partial class BattleScreen
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         if (!GodotObject.IsInstanceValid(this) || !IsInsideTree()) return;
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        if (!GodotObject.IsInstanceValid(this) || !CanFocus(control) || GetViewport().GuiGetFocusOwner() != control || _helpDialog.Visible || _logDialog.Visible) return;
+        if (!GodotObject.IsInstanceValid(this) || !CanFocus(control) || GetViewport().GuiGetFocusOwner() != control || BattleDialogVisible) return;
         Control visible = control;
         for (var parent = control.GetParent(); parent is not null; parent = parent.GetParent())
             if (parent is ScrollContainer scroll)
@@ -119,8 +128,15 @@ public partial class BattleScreen
             }
     }
 
+    private static IEnumerable<ScrollContainer> AncestorScrolls(Node node)
+    {
+        for (var parent = node.GetParent(); parent is not null; parent = parent.GetParent())
+            if (parent is ScrollContainer scroll) yield return scroll;
+    }
+
     private void ShowBattleDialog(AcceptDialog dialog)
     {
+        _inspectionPanel.Hide();
         var owner = GetViewport().GuiGetFocusOwner();
         _dialogReturnFocus = CaptureBattleFocus(owner);
         _dialogReturnControl = _dialogReturnFocus is null ? owner : null;

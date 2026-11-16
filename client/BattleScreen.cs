@@ -65,6 +65,7 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
             if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
             if (args.Contains("--battle-processing-smoke")) { _ = RunProcessingSmoke(); return; }
+            if (args.Contains("--battle-inspection-smoke")) { _ = RunInspectionSmoke(); return; }
             if (args.Contains("--battle-keyboard-smoke")) { _ = RunKeyboardSmoke(args); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
@@ -97,6 +98,7 @@ public partial class BattleScreen : Control
         header.AddChild(Button("恢复战斗", Restore));
         header.AddChild(Button("新建战斗", NewBattle));
         header.AddChild(Button("战斗记录", () => ShowBattleDialog(_logDialog)));
+        _inspectButton = Button("手牌一览", ShowHandInspection); header.AddChild(_inspectButton);
         header.AddChild(Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")));
         var setup = new HBoxContainer(); setup.AddThemeConstantOverride("separation", 12); root.AddChild(setup);
         var playerLabel = Text("我方人数", 16); playerLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
@@ -122,7 +124,7 @@ public partial class BattleScreen : Control
         var optionScroll = new ScrollContainer { FollowFocus = true, CustomMinimumSize = new Vector2(0, 50), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         column.AddChild(optionScroll);
         _options = Flow(optionScroll);
-        _cardDetail = Text("悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。", 14);
+        _cardDetail = Text(CardDetailHint, 14);
         _cardDetail.CustomMinimumSize = new Vector2(0, 20);
         _cardDetail.MaxLinesVisible = 1;
         _cardDetail.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
@@ -149,6 +151,7 @@ public partial class BattleScreen : Control
         _logText.OffsetLeft = 16; _logText.OffsetTop = 16; _logText.OffsetRight = -16; _logText.OffsetBottom = -58;
         _logDialog.AddChild(_logText);
         BuildKeyboardHelp();
+        BuildCardInspection();
         _aiTimer = new Godot.Timer { WaitTime = 0.35, OneShot = false };
         AddChild(_aiTimer);
         _aiTimer.Timeout += AdvanceAi;
@@ -156,14 +159,15 @@ public partial class BattleScreen : Control
 
     private void Refresh(string message, FocusRequest? focus = null)
     {
+        ClearCardInspection();
         var view = _interaction.View;
         var previousOwner = GetViewport().GuiGetFocusOwner();
         var previousFocus = CaptureBattleFocus(previousOwner);
         var automaticWait = previousOwner == _helpButton && _automaticWaitingFocus;
         var sameRequest = _focusRequestId == view.PendingDecision?.RequestId && _focusStateVersion == view.StateVersion;
         _focusRequestId = view.PendingDecision?.RequestId; _focusStateVersion = view.StateVersion;
-        Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear(); _handCards.Clear(); _processingCards.Clear();
-        _cardDetail.Text = "悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。";
+        Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear(); _handCards.Clear(); _processingCards.Clear(); _handInspectionDetails.Clear();
+        _cardDetail.Text = CardDetailHint;
         _status.Text = $"当前{view.Combatants.Count(u => u.TeamId == "a")}对{view.Combatants.Count(u => u.TeamId == "b")} · 第 {view.TurnNumber} 回合 · {UnitName(view, view.ActiveUnitId)}    牌堆 {view.DrawCount} · 弃牌 {view.DiscardPile.Length}    "
             + (view.WinnerTeamId is { } winner ? (winner == "a" ? "我方获胜" : "敌方获胜") : "战斗进行中");
         var actorId = view.PendingDecision?.ControllerId == "player" ? view.PendingDecision.ActorId : null;
@@ -281,6 +285,7 @@ public partial class BattleScreen : Control
         _confirm.Disabled = _interaction.Selection is null;
         _cancel.Disabled = _interaction.Selection is null && _selectedCard is null && _selectedTarget is null;
         _feedback.Text = message;
+        UpdateHandInspection();
         ScheduleBattleFocus(focus ?? (sameRequest ? previousFocus : null) ?? new(FocusArea.Default),
             focus is null && previousFocus is null && !automaticWait ? previousOwner : null);
     }
@@ -517,13 +522,13 @@ public partial class BattleScreen : Control
             BasicCardKind.Snatch => "获得距离内目标1张暗手牌（开发范围仅手牌区）。",
             _ => ""
         }) + (legal ? " 可选择；具体目标、转换技能与成本以合法方案为准。" : " 当前无合法动作。");
-        button.TooltipText = details;
+        _handInspectionDetails[button] = details;
+        BindCardInspection(button, card, details);
         var hovering = false;
         void UpdateHighlight()
         {
             var highlight = hovering || button.HasFocus();
             content.OffsetTop = highlight ? 2 : 6; content.OffsetBottom = highlight ? -10 : -6;
-            _cardDetail.Text = highlight ? details : "悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。";
         }
         button.MouseEntered += () => { hovering = true; UpdateHighlight(); };
         button.MouseExited += () => { hovering = false; UpdateHighlight(); };
@@ -698,7 +703,7 @@ public partial class BattleScreen : Control
         try
         {
             if (args.Length is not (2 or 4 or 5) || !Path.IsPathFullyQualified(args[1]))
-                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected|processing|conversion|keyboard]]");
+                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected|processing|conversion|keyboard|hand]]");
             if (args.Length >= 4)
             {
                 var players = int.Parse(args[2]); var opponents = int.Parse(args[3]);
@@ -711,6 +716,7 @@ public partial class BattleScreen : Control
             {
                 if (args[4] == "log") _logDialog.PopupCentered(new Vector2I(850, 500));
                 else if (args[4] == "keyboard") ShowBattleDialog(_helpDialog);
+                else if (args[4] == "hand") ShowHandInspection();
                 else if (args[4] == "selected")
                 {
                     _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.TargetId is not null))
@@ -736,6 +742,7 @@ public partial class BattleScreen : Control
                 }
                 else throw new ArgumentException("未知预览模式。");
             }
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             var error = GetViewport().GetTexture().GetImage().SavePng(args[1]);
