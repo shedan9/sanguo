@@ -8,6 +8,10 @@ namespace Sanguo.Client;
 
 public partial class BattleScreen : Control
 {
+    public FirstCitySession? CampaignSession { get; set; }
+    public Action? LeaveCampaignBattle { get; set; }
+    public Action? SaveCampaign { get; set; }
+    public Action? LoadCampaign { get; set; }
     private static readonly Color Paper = new("EDE3CF"), Gold = new("C3A66A"), Ink = new("252B29");
     private BattleInteraction _interaction = null!;
     private readonly BasicBattleFileSaveStore _store = new();
@@ -55,9 +59,15 @@ public partial class BattleScreen : Control
             QueueFree();
             return;
         }
+        if (CampaignSession is null && (args.Contains("--campaign-smoke") || args.Contains("--campaign-preview")))
+        {
+            Callable.From(() => GetTree().ChangeSceneToFile("res://scenes/Campaign.tscn")).CallDeferred();
+            return;
+        }
         try
         {
-            _interaction = new(DevelopmentBattleScenario.Create());
+            _interaction = new(CampaignSession?.ActiveBattle ?? DevelopmentBattleScenario.Create());
+            _focusUnitId = _interaction.View.Combatants.First(u => u.TeamId == "a").EntityId;
             _art = new DevelopmentBattleArtwork();
             BuildInterface();
             Refresh("选择手牌，再选择目标或技能方案，最后确认。取消选择不会消耗牌。");
@@ -94,12 +104,22 @@ public partial class BattleScreen : Control
         margin.AddChild(root);
         var header = Flow(root);
         header.AddChild(Text("三国行纪 · 战斗桌面", 26, Gold));
-        header.AddChild(Button("保存战斗", () => { _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前决策点。"; }));
-        header.AddChild(Button("恢复战斗", Restore));
-        header.AddChild(Button("新建战斗", NewBattle));
+        if (CampaignSession is null)
+        {
+            header.AddChild(Button("保存战斗", () => { _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前决策点。"; }));
+            header.AddChild(Button("恢复战斗", Restore));
+            header.AddChild(Button("新建战斗", NewBattle));
+            header.AddChild(Button("首城行程", () => GetTree().ChangeSceneToFile("res://scenes/Campaign.tscn")));
+        }
+        else
+        {
+            header.AddChild(Button("保存行程", () => { SaveCampaign?.Invoke(); _feedback.Text = "已保存行程与当前牌局。"; }));
+            header.AddChild(Button("恢复行程", () => LoadCampaign?.Invoke()));
+            header.AddChild(Button("返回行程", () => { _aiTimer.Stop(); LeaveCampaignBattle?.Invoke(); }));
+        }
         header.AddChild(Button("战斗记录", () => ShowBattleDialog(_logDialog)));
         _inspectButton = Button("手牌一览", ShowHandInspection); header.AddChild(_inspectButton);
-        header.AddChild(Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")));
+        if (CampaignSession is null) header.AddChild(Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")));
         var setup = new HBoxContainer(); setup.AddThemeConstantOverride("separation", 12); root.AddChild(setup);
         var playerLabel = Text("我方人数", 16); playerLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         playerLabel.AutowrapMode = TextServer.AutowrapMode.Off;
@@ -109,6 +129,8 @@ public partial class BattleScreen : Control
         opponentLabel.AutowrapMode = TextServer.AutowrapMode.Off;
         setup.AddChild(opponentLabel);
         _opponentCount = TeamSizeOption(); setup.AddChild(_opponentCount);
+        if (CampaignSession is not null)
+            foreach (var control in setup.GetChildren().OfType<Control>()) control.Hide();
         _status = Text("", 16); setup.AddChild(_status);
         var scroll = new ScrollContainer { FollowFocus = true, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
         root.AddChild(scroll);
@@ -247,7 +269,8 @@ public partial class BattleScreen : Control
             _table.AddChild(button);
             _seatButtons.Add(unit.EntityId, button);
         }
-        _prompt.Text = Prompt(view);
+        _prompt.Text = CampaignSession is not null && view.WinnerTeamId is not null
+            ? "本场战斗已结束，请点“返回行程”记录战果。" : Prompt(view);
         UpdateLog(view);
         if (actorId is not null)
         {
@@ -457,7 +480,12 @@ public partial class BattleScreen : Control
         return label;
     }
 
-    private static string UnitName(BattleView view, string id) => view.Combatants.FirstOrDefault(u => u.EntityId == id)?.Profile switch
+    private static string UnitName(BattleView view, string id) => id switch
+    {
+        "protagonist" => "主角", "companion.volunteer" => "同行乡勇", "guard.1" => "守军一", "guard.2" => "守军二",
+        _ => BattleUnitName(view, id)
+    };
+    private static string BattleUnitName(BattleView view, string id) => view.Combatants.FirstOrDefault(u => u.EntityId == id)?.Profile switch
     {
         BattleProfile.GuanyuStandard => "关羽", BattleProfile.CaocaoStandard => "曹操",
         BattleProfile.ProtagonistFenjiI => "乡勇", _ => view.Combatants.FirstOrDefault(u => u.EntityId == id) is { } unit

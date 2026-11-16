@@ -98,6 +98,11 @@ try {
         Invoke-Checked $dotnet @('run', '--project', 'tools/Sanguo.Simulator', '--no-build', '--no-restore', '--', "--$resume", "build/$folder/$checkpoint", "build/$folder/$resumeFolder")
         Assert-SameFile "build/$folder/final.json" "build/$folder/$resumeFolder/final.json"
     }
+    Invoke-Checked $dotnet @('run', '--project', 'tools/Sanguo.Simulator', '--no-build', '--no-restore', '--', '--campaign-first-city', '42', 'build/first-city')
+    foreach ($origin in @('damage', 'control', 'tank')) {
+        Invoke-Checked $dotnet @('run', '--project', 'tools/Sanguo.Simulator', '--no-build', '--no-restore', '--', '--campaign-resume', "build/first-city/$origin/checkpoint.json", "build/first-city/$origin/resumed")
+        Assert-SameFile "build/first-city/$origin/final.json" "build/first-city/$origin/resumed/final.json"
+    }
     Write-Host 'Windows完整开发检查通过。'
 }
 finally { Pop-Location }

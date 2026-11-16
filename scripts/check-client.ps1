@@ -63,6 +63,7 @@ try {
         (Get-FileDigest (Join-Path $evidence 'resumed-final.json'))) {
         throw 'Cross-process client battle result differs.'
     }
+    Invoke-Smoke 'campaign' @('--campaign-smoke', (Join-Path $evidence 'campaign')) 'CAMPAIGN_CLIENT_SMOKE_OK games=6'
     Invoke-Smoke 'g0' @('--smoke') 'G0_SMOKE_OK 066d2413bb3ac61446d293248828c47eb1e704b0e930dea0e1775b28f1aaa883'
     Write-Host 'Client button flow, AI, cross-process save/resume and G0 routing passed.'
 }

@@ -10,6 +10,8 @@
 
 手牌与公开处理区卡面可通过悬停或键盘聚焦展开完整预览，显示实际花色点数、原牌画面及当前用途；Esc收起预览，不改变选择或放弃响应。顶部“手牌一览”提供当前操作友军的全部手牌，可用键盘选择逐张阅读，包括当前不可用的灰置牌。查看不提交命令；请求切换、读档和新建会刷新可见牌，敌方手牌不展示。此为开发查看流程，同版本OL悬停形态及新增入口的差异仍待核验。
 
+首城战役现有独立开发闭环：在战斗页点击“首城行程”，选择三种出身之一，经历各自三个事件、可选邀请乡勇并编队，通过故乡撤离、驿路、外城与内城四场真实牌局取得柳平城。支持失败重试、主角不上场、战役与活动牌局一并保存恢复。乡勇启用奋击I阶，学子和农户暂用无技能模板，对手均为通用守军；完整M2内容仍待制作。范围和复现见[首城战役开发闭环](docs/12-首城战役开发闭环.md)。
+
 ## 开发入口
 
 工具链候选为.NET SDK 10.0.404、Godot 4.7.2 .NET。脚本优先使用项目内`.tools/`工具，不修改全局shell；新检出需自行安装对应SDK和Godot .NET。当前Windows开发机已在`.tools/`安装同版可移植工具，系统原有SDK不受影响。版本、下载摘要与平台验证见[工具链决策](docs/decisions/0001-toolchain.md)。
@@ -39,6 +41,9 @@
 # 基础AI对战；逐决策验证恢复，输出动作评分和原因
 ./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-ai 42 build/ai-battle
 ./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --battle-ai-resume build/ai-battle/ai-decision.json build/ai-battle/resumed-ai
+
+# 三线首城开发闭环，含真实战斗与中途恢复
+./scripts/dotnet.sh run --project tools/Sanguo.Simulator -- --campaign-first-city 42 build/first-city
 
 # 来源冻结严格检查；公开开发资料已采集，正式快照尚未冻结，预期返回1
 ./scripts/dotnet.sh run --project tools/Sanguo.ContentValidator -- content --require-frozen
@@ -86,7 +91,7 @@ Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存�
 
 ## 文档导航
 
-`content/planning/story-outline.json`登记三种出身各15个主线单元及各自三类尾声，由内容校验器检查章节、后继引用与里程碑。它们独立于运行内容，不参与抽牌内容哈希；首城事件配置和剧情执行尚未实现。
+`content/planning/story-outline.json`登记三种出身各15个主线单元及各自三类尾声，由内容校验器检查章节、后继引用与里程碑。它们独立于运行内容，不参与抽牌内容哈希；首城开发事件现由独立的编译期战役目录执行；大纲仍为制作草稿，正式事件JSON、共享支线与OL人物招募路径尚未实现。
 
 | 文档 | 用途 |
 | --- | --- |
@@ -102,6 +107,7 @@ Windows自动验收会检查文件摘要、固定状态哈希、跨进程保存�
 | [三线故事大纲](docs/09-三线故事大纲.md) | 三套故事因果、制作数据契约、校验边界与首城细化入口 |
 | [基础战斗开发规则](docs/10-基础战斗开发规则.md) | 八种牌、手牌拆顺、连续反无懈、显式响应帧与开发快照 |
 | [技能开发规则](docs/11-技能开发规则.md) | 武圣转换、奸雄伤后询问、奋击I阶、开发配置与技能恢复证据 |
+| [首城战役开发闭环](docs/12-首城战役开发闭环.md) | 三线事件、可选同伴与编队、两阶段攻城、失败重试及整场战役存档 |
 
 ## 产品标准
 
