@@ -18,7 +18,8 @@ public partial class BattleScreen : Control
     private Label _cardDetail = null!;
     private readonly Dictionary<Button, BattleCard> _handCards = new();
     private Control _table = null!;
-    private Label _tableInfo = null!;
+    private Control _processingPanel = null!;
+    private readonly Dictionary<Control, ProcessingCardView> _processingCards = new();
     private OptionButton _playerCount = null!, _opponentCount = null!;
     private AcceptDialog _logDialog = null!;
     private RichTextLabel _logText = null!;
@@ -62,6 +63,7 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-smoke")) { RunSmoke(args); return; }
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
             if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
+            if (args.Contains("--battle-processing-smoke")) { _ = RunProcessingSmoke(); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -114,7 +116,7 @@ public partial class BattleScreen : Control
         _prompt = Text("", 22, Gold); column.AddChild(_prompt);
         var handScroll = new ScrollContainer { FollowFocus = true, CustomMinimumSize = new Vector2(0, 122), VerticalScrollMode = ScrollContainer.ScrollMode.Disabled };
         column.AddChild(handScroll);
-        _hand = new HBoxContainer(); _hand.AddThemeConstantOverride("separation", 8); handScroll.AddChild(_hand);
+        _hand = new HBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; _hand.AddThemeConstantOverride("separation", 8); handScroll.AddChild(_hand);
         var optionScroll = new ScrollContainer { FollowFocus = true, CustomMinimumSize = new Vector2(0, 50), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         column.AddChild(optionScroll);
         _options = Flow(optionScroll);
@@ -147,7 +149,7 @@ public partial class BattleScreen : Control
     private void Refresh(string message)
     {
         var view = _interaction.View;
-        Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear(); _handCards.Clear();
+        Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear(); _handCards.Clear(); _processingCards.Clear();
         _cardDetail.Text = "悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。";
         _status.Text = $"当前{view.Combatants.Count(u => u.TeamId == "a")}对{view.Combatants.Count(u => u.TeamId == "b")} · 第 {view.TurnNumber} 回合 · {UnitName(view, view.ActiveUnitId)}    牌堆 {view.DrawCount} · 弃牌 {view.DiscardPile.Length}    "
             + (view.WinnerTeamId is { } winner ? (winner == "a" ? "我方获胜" : "敌方获胜") : "战斗进行中");
@@ -159,13 +161,7 @@ public partial class BattleScreen : Control
             BorderWidthLeft = 2, BorderWidthRight = 2, BorderWidthTop = 2, BorderWidthBottom = 2,
             CornerRadiusTopLeft = 38, CornerRadiusTopRight = 38, CornerRadiusBottomLeft = 38, CornerRadiusBottomRight = 38 });
         _table.AddChild(tableBackground);
-        _tableInfo = Text("", 17);
-        _tableInfo.AnchorLeft = .25f; _tableInfo.AnchorRight = .75f;
-        _tableInfo.AnchorTop = .37f; _tableInfo.AnchorBottom = .63f;
-        _tableInfo.HorizontalAlignment = HorizontalAlignment.Center;
-        _tableInfo.VerticalAlignment = VerticalAlignment.Center;
-        _tableInfo.MouseFilter = MouseFilterEnum.Ignore;
-        _table.AddChild(_tableInfo);
+        BuildProcessingArea(view);
         foreach (var seat in BattleSeatLayout.Arrange(view, _focusUnitId))
         {
             var unit = view.Combatants.Single(u => u.EntityId == seat.EntityId);
@@ -210,13 +206,24 @@ public partial class BattleScreen : Control
                 portraitPanel.AddChild(placeholder);
             }
             portraitPanel.AddChild(Picture(_art.SeatFrame));
+            var seatInfo = new VBoxContainer { Position = new Vector2(78, 4), Size = new Vector2(96, 82) };
+            seatInfo.AddThemeConstantOverride("separation", 2);
+            button.AddChild(seatInfo);
             var info = Text(UnitName(view, unit.EntityId) + "\n"
                 + (unit.Alive ? $"体力{unit.Hp}/{unit.MaxHp} 手牌{unit.HandCount}" : "已阵亡")
-                + $"\n{(unit.TeamId == "a" ? "我方" : "敌方")} · 座次{unit.SeatId + 1}\n"
-                + (marker.Length > 0 ? marker.Trim(' ', '·') : skills), 13);
-            info.Position = new Vector2(78, 6); info.Size = new Vector2(96, 78);
+                + $"\n{(unit.TeamId == "a" ? "我" : "敌")}{unit.SeatId + 1} · "
+                + (marker.Length > 0 ? marker.Trim(' ', '·').Replace("当前回合", "回合中", StringComparison.Ordinal) : skills), 13);
+            info.AutowrapMode = TextServer.AutowrapMode.Off;
+            info.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             info.MouseFilter = MouseFilterEnum.Ignore;
-            button.AddChild(info);
+            info.SizeFlagsVertical = SizeFlags.ExpandFill;
+            seatInfo.AddChild(info);
+            var zones = Text("装备/判定未接入", 12, Paper);
+            zones.AutowrapMode = TextServer.AutowrapMode.Off;
+            zones.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            zones.MouseFilter = MouseFilterEnum.Ignore;
+            seatInfo.AddChild(zones);
+            button.TooltipText += "\n装备区与判定区尚未接入；当前拆顺只选择手牌。";
             button.AnchorLeft = button.AnchorRight = (float)seat.X;
             button.AnchorTop = button.AnchorBottom = (float)seat.Y;
             button.OffsetLeft = -89; button.OffsetRight = 89; button.OffsetTop = -45; button.OffsetBottom = 45;
@@ -225,8 +232,6 @@ public partial class BattleScreen : Control
         }
         _prompt.Text = Prompt(view);
         UpdateLog(view);
-        _tableInfo.Text = view.Processing.Length > 0 ? "处理区\n" + string.Join("、", view.Processing.Select(Card))
-            : "三国行纪\n" + (_interaction.View.WinnerTeamId is null ? "以卡牌决胜" : "本场战斗结束");
         if (actorId is not null)
         {
             var actor = view.Combatants.Single(u => u.EntityId == actorId);
@@ -635,6 +640,7 @@ public partial class BattleScreen : Control
                     await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                     if (_seatButtons.Count != playerCount + opponentCount) throw new InvalidOperationException("角色框数量不匹配。");
                     var bounds = new Rect2(Vector2.Zero, _table.Size);
+                    CheckProcessingLayout();
                     var buttons = _seatButtons.Values.ToArray();
                     for (var i = 0; i < buttons.Length; i++)
                     {
@@ -675,7 +681,7 @@ public partial class BattleScreen : Control
         try
         {
             if (args.Length is not (2 or 4 or 5) || !Path.IsPathFullyQualified(args[1]))
-                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected]]");
+                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected|processing|conversion]]");
             if (args.Length >= 4)
             {
                 var players = int.Parse(args[2]); var opponents = int.Parse(args[3]);
@@ -692,6 +698,23 @@ public partial class BattleScreen : Control
                     _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.TargetId is not null))
                         .Key.EmitSignal(BaseButton.SignalName.Pressed);
                     _handCards.First(p => p.Value.InstanceId == _selectedCard).Key.EmitSignal(Control.SignalName.MouseEntered);
+                }
+                else if (args[4] == "conversion")
+                {
+                    var action = _interaction.View.LegalActions.First(a => a.SkillId == BattleSkills.Wusheng);
+                    _interaction.Select(action); _interaction.Confirm(); Refresh("武圣转换牌处理区预览");
+                    _processingCards.Keys.First().EmitSignal(Control.SignalName.MouseEntered);
+                }
+                else if (args[4] == "processing")
+                {
+                    var steps = 0;
+                    while (_interaction.View.Response is not { Kind: EffectKind.Nullification, ChainDepth: > 0 })
+                    {
+                        if (++steps > 4000 || _interaction.View.PendingDecision is null) throw new InvalidOperationException("未找到反无懈预览点。");
+                        if (_interaction.WaitingForAi) _interaction.AdvanceAi(v => BasicBattleAi.Choose(v)?.Action);
+                        else { _interaction.Select(BasicBattleAi.Choose(_interaction.View)!.Action); _interaction.Confirm(); }
+                    }
+                    Refresh("反无懈处理区预览");
                 }
                 else throw new ArgumentException("未知预览模式。");
             }
