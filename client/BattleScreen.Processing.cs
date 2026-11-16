@@ -32,7 +32,7 @@ public partial class BattleScreen
         context.AddChild(Text(state, 13));
         var relation = view.Response is { } response
             ? UnitName(view, response.Trick?.SourceId ?? response.SourceId) + " → " + UnitName(view, response.Trick?.TargetId ?? response.TargetId)
-            : "装备/判定尚未接入";
+            : "选牌 → 目标 → 确认";
         var relationLabel = Text(relation, 12, Paper);
         relationLabel.AutowrapMode = TextServer.AutowrapMode.Off;
         relationLabel.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;

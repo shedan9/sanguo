@@ -15,7 +15,8 @@ public partial class BattleScreen
     private OptionButton _handChoice = null!;
     private string? _inspectedActor;
     private readonly List<(BattleCard Card, string Details)> _inspectionHand = [];
-    private bool BattleDialogVisible => _helpDialog.Visible || _logDialog.Visible || _handDialog.Visible;
+    private bool BattleDialogVisible => _helpDialog.Visible || _logDialog.Visible || _handDialog.Visible
+        || _unitDialog.Visible || _settingsDialog.Visible;
 
     private void BuildCardInspection()
     {
@@ -116,6 +117,7 @@ public partial class BattleScreen
 
     public override void _Process(double delta)
     {
+        if (_helpDialog is not null && _unitDialog is not null) RevealChangedFocusLayout();
         if (_inspectionPanel is not null && (_hoverInspection ?? _focusInspection) is not null && !_inspectionDismissed)
             PositionCardInspection();
     }

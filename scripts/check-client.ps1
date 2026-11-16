@@ -59,6 +59,7 @@ try {
     Invoke-Smoke 'processing' @('--battle-processing-smoke') 'BATTLE_PROCESSING_SMOKE_OK'
     Invoke-Smoke 'inspection' @('--battle-inspection-smoke') 'BATTLE_INSPECTION_SMOKE_OK'
     Invoke-Smoke 'keyboard' @('--battle-keyboard-smoke', (Join-Path $evidence 'keyboard')) 'BATTLE_KEYBOARD_SMOKE_OK games=2'
+    Invoke-Smoke 'presentation' @('--battle-presentation-smoke') 'BATTLE_PRESENTATION_SMOKE_OK layouts=256'
     if ((Get-FileDigest (Join-Path $evidence 'final.json')) -cne
         (Get-FileDigest (Join-Path $evidence 'resumed-final.json'))) {
         throw 'Cross-process client battle result differs.'

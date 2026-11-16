@@ -93,7 +93,7 @@ public partial class BattleScreen
                 {
                     var sample = new BattleCard("inspection.display." + kind, kind, "diamond", 13);
                     var control = CreateCardButton(sample, true, () => { }); _hand.AddChild(control);
-                    control.GrabFocus(); await KeyboardFrame();
+                    control.GrabFocus(); await KeyboardFrame(); await KeyboardFrame();
                     CheckCardInspection(control, sample); inspected++;
                 }
                 if (BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot) != BasicBattleSnapshotCodec.StateHash(DevelopmentBattleScenario.Create().State))
@@ -126,7 +126,8 @@ public partial class BattleScreen
             || !new Rect2(Vector2.Zero, GetViewportRect().Size).Encloses(_inspectionPanel.GetGlobalRect())
             || _inspectionPanel.GetGlobalRect().Intersects(owner.GetGlobalRect())
             || InspectionControls(_inspectionPanel).Any(c => c.MouseFilter != MouseFilterEnum.Ignore || c.FocusMode != FocusModeEnum.None))
-            throw new InvalidOperationException($"卡牌预览内容、边界或输入穿透错误：{Card(card)} owner={owner.GetGlobalRect()} preview={_inspectionPanel.GetGlobalRect()} visible={_inspectionPanel.Visible}");
+            throw new InvalidOperationException($"卡牌预览内容、边界或输入穿透错误：{Card(card)} owner={owner.GetGlobalRect()} preview={_inspectionPanel.GetGlobalRect()} visible={_inspectionPanel.Visible} focus={owner.HasFocus()} scrolls="
+                + string.Join(" / ", AncestorScrolls(owner).Select(s => $"{s.GetGlobalRect()} h={s.ScrollHorizontal} max={s.GetHScrollBar().MaxValue} page={s.GetHScrollBar().Page}")));
         CheckInspectionText(_inspectionPanel);
     }
 

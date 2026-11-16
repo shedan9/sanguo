@@ -15,23 +15,32 @@ public partial class BattleScreen
     private Control? _dialogReturnControl;
     private string? _dialogRequestId;
     private bool _automaticWaitingFocus;
+    private Control? _lastLaidOutFocus;
+    private Rect2 _lastFocusRect, _lastFocusViewport;
 
     public override void _Input(InputEvent input)
     {
         if (input is InputEventKey { Pressed: true, Echo: false } or InputEventMouseButton { Pressed: true })
             _automaticWaitingFocus = false;
+        if (input is InputEventMouseButton mouse && HandleBattlePointer(mouse))
+        { GetViewport().SetInputAsHandled(); return; }
         if (input is InputEventKey { Keycode: Key.Escape, Pressed: true, Echo: false }
             && !BattleDialogVisible && _inspectionPanel.Visible)
         {
             _inspectionDismissed = true;
             _inspectionPanel.Hide();
             GetViewport().SetInputAsHandled();
+            return;
         }
+        if (input is InputEventKey { Keycode: Key.Escape, Pressed: true, Echo: false }
+            && !BattleDialogVisible && !_cancel.Disabled)
+        { _cancel.EmitSignal(BaseButton.SignalName.Pressed); GetViewport().SetInputAsHandled(); }
     }
 
     private void BuildKeyboardHelp()
     {
-        _helpDialog = new AcceptDialog { Title = "操作说明 · 键盘与鼠标", DialogText =
+        _helpDialog = new AcceptDialog { Title = "操作说明 · 键盘与鼠标" };
+        var help = new RichTextLabel { Text =
             "Tab：移到下一个可用控件；Shift+Tab：返回上一个。\n"
             + "Enter或空格：激活当前按钮。描边标明当前焦点。\n\n"
             + "选中手牌后，焦点移到合法目标；无目标时移到操作方案。\n"
@@ -44,8 +53,16 @@ public partial class BattleScreen
             + "战斗记录可用Tab聚焦滚动条，按方向键上下查看历史。\n"
             + "战斗记录和本说明均可聚焦关闭按钮返回。\n"
             + "弹层内按Esc也可关闭，不会放弃战斗响应。\n"
+            + "右键取消当前选择，不放弃响应、不结束回合。\n"
+            + "双击已明确的牌或目标可确认；多个成本仍需选择，可在界面设置中关闭。\n"
+            + "技能按钮可筛选可用手牌和成本；角色资料可查看完整技能。\n"
+            + "界面设置支持100%至200%与跟随系统缩放、减少动态。\n"
             + "敌方行动时只显示公开信息，玩家响应不限时。" };
         AddChild(_helpDialog);
+        help.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        help.OffsetLeft = 20; help.OffsetRight = -20; help.OffsetTop = 16; help.OffsetBottom = -64;
+        _helpDialog.AddChild(help);
+        help.GetVScrollBar().FocusMode = FocusModeEnum.All;
         _helpDialog.GetOkButton().Text = "关闭说明";
         _logDialog.GetOkButton().Text = "关闭记录";
         _helpDialog.DialogCloseOnEscape = true;
@@ -128,6 +145,22 @@ public partial class BattleScreen
             }
     }
 
+    private void RevealChangedFocusLayout()
+    {
+        if (BattleDialogVisible || GetViewport().GuiGetFocusOwner() is not { } control || !CanFocus(control)) return;
+        var rect = control.GetRect(); var viewport = GetViewportRect();
+        if (ReferenceEquals(control, _lastLaidOutFocus) && rect == _lastFocusRect && viewport == _lastFocusViewport) return;
+        _lastLaidOutFocus = control; _lastFocusRect = rect; _lastFocusViewport = viewport;
+        // A nested container may place a newly focused card after FocusEntered. Follow that layout once;
+        // subsequent manual scrolling must remain free to move the card out of view.
+        Control visible = control;
+        foreach (var scroll in AncestorScrolls(control))
+        {
+            if (!scroll.GetGlobalRect().Encloses(visible.GetGlobalRect())) scroll.EnsureControlVisible(visible);
+            visible = scroll;
+        }
+    }
+
     private static IEnumerable<ScrollContainer> AncestorScrolls(Node node)
     {
         for (var parent = node.GetParent(); parent is not null; parent = parent.GetParent())
@@ -142,7 +175,7 @@ public partial class BattleScreen
         _dialogReturnControl = _dialogReturnFocus is null ? owner : null;
         _dialogRequestId = _interaction.View.PendingDecision?.RequestId;
         ++_focusRevision;
-        dialog.PopupCentered(new Vector2I(850, 500));
+        dialog.PopupCentered(DialogSize());
         dialog.GetOkButton().GrabFocus();
     }
 

@@ -149,9 +149,12 @@ public static class SourceManifestValidator
         c.Text(data.ReferenceId, "$.referenceId");
         c.Require(data.Resolution is { Width: > 0, Height: > 0 }, "$.resolution", "分辨率必须为正整数。");
         var frozen = data.Status == "frozen";
+        c.Require(data.RecordingPolicy is "required" or "deferred", "$.recordingPolicy", "录像策略必须为required或deferred。");
+        var recordingsRequired = data.RecordingPolicy != "deferred";
+        if (!recordingsRequired) c.Text(data.RecordingDeferralReason, "$.recordingDeferralReason");
         var evidence = c.Evidence(data.Evidence, "$.evidence", frozen);
         c.References(data.Screenshots, "$.screenshots", evidence, "screenshot", frozen);
-        c.References(data.Recordings, "$.recordings", evidence, "recording", frozen);
+        c.References(data.Recordings, "$.recordings", evidence, "recording", frozen && recordingsRequired);
         if (frozen)
         {
             c.Text(data.Theme, "$.theme");
@@ -172,7 +175,7 @@ public static class SourceManifestValidator
                 c.Require(!frozen || state.Status == "frozen", field + ".status", "整体冻结时，所有交互状态都必须冻结。");
                 c.References(state.Evidence, field + ".evidence", evidence, null, state.Status == "frozen");
                 if (state.Status == "frozen")
-                    foreach (var kind in new[] { "screenshot", "recording" })
+                    foreach (var kind in recordingsRequired ? new[] { "screenshot", "recording" } : new[] { "screenshot" })
                         c.Require(!state.Evidence.IsDefault && state.Evidence.Any(id =>
                             id is not null && evidence.TryGetValue(id, out var item) && item.Kind == kind),
                             field + ".evidence", $"已冻结交互状态需要{kind}证据。");
@@ -327,6 +330,8 @@ internal sealed record SourceAttributes(int MaxHp, string Gender, string Faction
 internal sealed record SourceSkill(string SkillId, string Text);
 internal sealed record UiManifest : ManifestHeader
 {
+    public string RecordingPolicy { get; init; } = "required";
+    public string? RecordingDeferralReason { get; init; }
     public required string ReferenceId { get; init; }
     public required string? Theme { get; init; }
     public required SourceResolution Resolution { get; init; }

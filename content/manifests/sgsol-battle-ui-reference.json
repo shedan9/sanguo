@@ -14,6 +14,8 @@
   "capturedAt": null,
   "screenshots": [],
   "recordings": [],
+  "recordingPolicy": "deferred",
+  "recordingDeferralReason": "2026-11-16用户要求操作录像暂缓；本轮保留同版本状态截图、逐步操作检查与差异登记，不将截图或自动化记录标作录像。",
   "interactionStates": [
     {
       "id": "idle",
