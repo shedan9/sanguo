@@ -36,6 +36,7 @@ public partial class BattleScreen : Control
     {
         get
         {
+            if (_keyboardSavePath is { } smokePath) return smokePath;
             var units = _interaction.View.Combatants;
             var players = units.Count(u => u.TeamId == "a");
             var opponents = units.Count(u => u.TeamId == "b");
@@ -64,6 +65,7 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
             if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
             if (args.Contains("--battle-processing-smoke")) { _ = RunProcessingSmoke(); return; }
+            if (args.Contains("--battle-keyboard-smoke")) { _ = RunKeyboardSmoke(args); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -94,7 +96,7 @@ public partial class BattleScreen : Control
         header.AddChild(Button("保存战斗", () => { _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前决策点。"; }));
         header.AddChild(Button("恢复战斗", Restore));
         header.AddChild(Button("新建战斗", NewBattle));
-        header.AddChild(Button("战斗记录", () => _logDialog.PopupCentered(new Vector2I(850, 500))));
+        header.AddChild(Button("战斗记录", () => ShowBattleDialog(_logDialog)));
         header.AddChild(Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")));
         var setup = new HBoxContainer(); setup.AddThemeConstantOverride("separation", 12); root.AddChild(setup);
         var playerLabel = Text("我方人数", 16); playerLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
@@ -128,11 +130,16 @@ public partial class BattleScreen : Control
         _preview = Text("", 16);
         var controls = Flow(root);
         _confirm = Button("确认操作", Confirm); controls.AddChild(_confirm);
-        _cancel = Button("取消选择", () => { ClearSelection(); Refresh("已取消选择，战斗状态未改变。"); });
+        _cancel = Button("取消选择", () =>
+        {
+            var card = _selectedCard;
+            ClearSelection(); Refresh("已取消选择，战斗状态未改变。", new(FocusArea.Hand, card));
+        });
         controls.AddChild(_cancel);
         _art.StyleDecisionButton(_confirm, true);
         _art.StyleDecisionButton(_cancel, false);
         controls.AddChild(_preview);
+        _helpButton = Button("操作说明", () => ShowBattleDialog(_helpDialog)); controls.AddChild(_helpButton);
         _feedback = Text("", 14); root.AddChild(_feedback);
         GetViewport().GuiEmbedSubwindows = true;
         _logDialog = new AcceptDialog { Title = "战斗记录 · 仅公开信息" };
@@ -141,14 +148,20 @@ public partial class BattleScreen : Control
         _logText.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         _logText.OffsetLeft = 16; _logText.OffsetTop = 16; _logText.OffsetRight = -16; _logText.OffsetBottom = -58;
         _logDialog.AddChild(_logText);
+        BuildKeyboardHelp();
         _aiTimer = new Godot.Timer { WaitTime = 0.35, OneShot = false };
         AddChild(_aiTimer);
         _aiTimer.Timeout += AdvanceAi;
     }
 
-    private void Refresh(string message)
+    private void Refresh(string message, FocusRequest? focus = null)
     {
         var view = _interaction.View;
+        var previousOwner = GetViewport().GuiGetFocusOwner();
+        var previousFocus = CaptureBattleFocus(previousOwner);
+        var automaticWait = previousOwner == _helpButton && _automaticWaitingFocus;
+        var sameRequest = _focusRequestId == view.PendingDecision?.RequestId && _focusStateVersion == view.StateVersion;
+        _focusRequestId = view.PendingDecision?.RequestId; _focusStateVersion = view.StateVersion;
         Clear(_table); Clear(_hand); Clear(_options); _optionActions.Clear(); _seatButtons.Clear(); _handCards.Clear(); _processingCards.Clear();
         _cardDetail.Text = "悬停或用Tab聚焦手牌可查看牌名、花色点数与当前用途。";
         _status.Text = $"当前{view.Combatants.Count(u => u.TeamId == "a")}对{view.Combatants.Count(u => u.TeamId == "b")} · 第 {view.TurnNumber} 回合 · {UnitName(view, view.ActiveUnitId)}    牌堆 {view.DrawCount} · 弃牌 {view.DiscardPile.Length}    "
@@ -241,7 +254,7 @@ public partial class BattleScreen : Control
                 var button = CreateCardButton(card, legal, () =>
                 {
                     ClearSelection(); _selectedCard = card.InstanceId;
-                    Refresh("已选牌，请选择目标或技能方案。确认前可以取消或重选。");
+                    Refresh("已选牌，请选择目标或技能方案。确认前可以取消或重选。", new(FocusArea.Target));
                 });
                 _hand.AddChild(button);
                 _handCards.Add(button, card);
@@ -254,7 +267,7 @@ public partial class BattleScreen : Control
                     if (!_interaction.Select(action)) { Refresh("请求已更新，请重新选择。"); return; }
                     _preview.Text = "待确认：" + Describe(view, action);
                     _confirm.Disabled = false; _cancel.Disabled = false;
-                    _confirm.GrabFocus();
+                    ScheduleBattleFocus(new(FocusArea.Confirm));
                 });
                 _optionActions.Add(button, action);
                 _options.AddChild(button);
@@ -268,6 +281,8 @@ public partial class BattleScreen : Control
         _confirm.Disabled = _interaction.Selection is null;
         _cancel.Disabled = _interaction.Selection is null && _selectedCard is null && _selectedTarget is null;
         _feedback.Text = message;
+        ScheduleBattleFocus(focus ?? (sameRequest ? previousFocus : null) ?? new(FocusArea.Default),
+            focus is null && previousFocus is null && !automaticWait ? previousOwner : null);
     }
 
     private void Confirm()
@@ -277,7 +292,8 @@ public partial class BattleScreen : Control
         var result = _interaction.Confirm();
         ClearSelection();
         Refresh(result.Accepted && selection is not null
-            ? UnitName(view, view.PendingDecision!.ActorId) + "：" + Describe(view, selection) + "。" + Outcome(view, _interaction.View) : result.Message);
+            ? UnitName(view, view.PendingDecision!.ActorId) + "：" + Describe(view, selection) + "。" + Outcome(view, _interaction.View) : result.Message,
+            new(FocusArea.Default));
     }
 
     private void AdvanceAi()
@@ -305,7 +321,7 @@ public partial class BattleScreen : Control
         var loaded = _store.Load(SavePath, _interaction.Snapshot.ContentHash);
         _interaction.Restore(loaded.State);
         ClearSelection(); _aiSteps = 0; _logVersion = -1;
-        Refresh(loaded.Message);
+        Refresh(loaded.Message, new(FocusArea.Default));
         _aiTimer.Start();
     }
 
@@ -321,7 +337,7 @@ public partial class BattleScreen : Control
     {
         _interaction = new(DevelopmentBattleScenario.Create(42, _playerCount.Selected + 1, _opponentCount.Selected + 1));
         ClearSelection(); _aiSteps = 0; _logVersion = -1; _focusUnitId = "development.guanyu";
-        Refresh($"已新建{_playerCount.Selected + 1}对{_opponentCount.Selected + 1}战斗，种子42。已切换至对应人数的独立存档槽，已有存档保留。");
+        Refresh($"已新建{_playerCount.Selected + 1}对{_opponentCount.Selected + 1}战斗，种子42。已切换至对应人数的独立存档槽，已有存档保留。", new(FocusArea.Default));
         _aiTimer.Start();
     }
 
@@ -336,7 +352,7 @@ public partial class BattleScreen : Control
             && (a.CardId is not null || a.Kind == BattleActionKind.SelectHandCard)).ToArray();
         if (candidates.Length == 0) { Refresh("目标已失效，请重新选牌。"); return; }
         _interaction.Cancel(); _selectedTarget = targetId;
-        Refresh("已选择目标；请核对操作或技能成本后确认。");
+        Refresh("已选择目标；请核对操作或技能成本后确认。", new(FocusArea.Option));
         if (candidates.Length == 1)
             _optionActions.Single(p => p.Value == candidates[0]).Key.EmitSignal(BaseButton.SignalName.Pressed);
     }
@@ -540,6 +556,7 @@ public partial class BattleScreen : Control
         button.AddThemeStyleboxOverride("hover", new StyleBoxFlat { BgColor = Gold });
         button.AddThemeStyleboxOverride("focus", new StyleBoxFlat { BgColor = Colors.Transparent, BorderColor = Gold,
             BorderWidthLeft = 3, BorderWidthRight = 3, BorderWidthTop = 3, BorderWidthBottom = 3 });
+        button.FocusEntered += () => _ = RevealBattleFocus(button);
         button.Pressed += () =>
         {
             try { action(); }
@@ -681,7 +698,7 @@ public partial class BattleScreen : Control
         try
         {
             if (args.Length is not (2 or 4 or 5) || !Path.IsPathFullyQualified(args[1]))
-                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected|processing|conversion]]");
+                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected|processing|conversion|keyboard]]");
             if (args.Length >= 4)
             {
                 var players = int.Parse(args[2]); var opponents = int.Parse(args[3]);
@@ -693,6 +710,7 @@ public partial class BattleScreen : Control
             if (args.Length == 5)
             {
                 if (args[4] == "log") _logDialog.PopupCentered(new Vector2I(850, 500));
+                else if (args[4] == "keyboard") ShowBattleDialog(_helpDialog);
                 else if (args[4] == "selected")
                 {
                     _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.TargetId is not null))

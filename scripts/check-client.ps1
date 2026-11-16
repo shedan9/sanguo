@@ -57,6 +57,7 @@ try {
     Invoke-Smoke 'layout' @('--battle-layout-smoke') 'BATTLE_LAYOUT_SMOKE_OK layouts=32'
     Invoke-Smoke 'artwork' @('--battle-artwork-smoke') 'BATTLE_ARTWORK_SMOKE_OK cards=8 portraits=2'
     Invoke-Smoke 'processing' @('--battle-processing-smoke') 'BATTLE_PROCESSING_SMOKE_OK'
+    Invoke-Smoke 'keyboard' @('--battle-keyboard-smoke', (Join-Path $evidence 'keyboard')) 'BATTLE_KEYBOARD_SMOKE_OK games=2'
     if ((Get-FileDigest (Join-Path $evidence 'final.json')) -cne
         (Get-FileDigest (Join-Path $evidence 'resumed-final.json'))) {
         throw 'Cross-process client battle result differs.'

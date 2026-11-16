@@ -86,7 +86,11 @@ public partial class BattleScreen
             + "。仅展示，不提交操作。";
         tile.TooltipText = details;
         tile.MouseEntered += () => _cardDetail.Text = details;
-        tile.FocusEntered += () => { border.BorderWidthLeft = border.BorderWidthRight = border.BorderWidthTop = border.BorderWidthBottom = 3; _cardDetail.Text = details; };
+        tile.FocusEntered += () =>
+        {
+            border.BorderWidthLeft = border.BorderWidthRight = border.BorderWidthTop = border.BorderWidthBottom = 3;
+            _cardDetail.Text = details; _ = RevealBattleFocus(tile);
+        };
         tile.FocusExited += () => border.BorderWidthLeft = border.BorderWidthRight = border.BorderWidthTop = border.BorderWidthBottom = 1;
         return tile;
     }
