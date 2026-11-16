@@ -11,7 +11,7 @@ $report = [ordered]@{
     startedAtUtc = [DateTime]::UtcNow.ToString('o')
     automaticChecksPassed = $false
     g0Accepted = $false
-    manualChecks = [ordered]@{ offlineLaunch = 'pending'; windowAndChinese = 'pending'; keyboardFocus = 'pending' }
+    manualChecks = [ordered]@{ offlineLaunch = 'pending'; windowAndChinese = 'pending'; mouseInteraction = 'pending' }
     evidenceDirectory = $evidence
     checks = @()
     failure = $null
@@ -126,5 +126,5 @@ finally {
     Write-Host "Report: $reportPath"
 }
 if ($null -ne $report.failure) { Write-Host ('FAILED: ' + $report.failure); exit 1 }
-Write-Host 'Automatic checks passed. Offline launch, visible UI, and keyboard checks remain pending. G0 is not accepted automatically.'
+Write-Host 'Automatic checks passed. Offline launch, visible UI, and mouse interaction checks remain pending. G0 is not accepted automatically.'
 exit 0

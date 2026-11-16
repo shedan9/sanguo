@@ -9,42 +9,36 @@ public partial class BattleScreen
     private OptionButton _unitPicker = null!;
     private RichTextLabel _unitText = null!;
     private readonly List<string> _inspectedUnits = [];
-    private Control? _inspectionFocus;
     private long _presentedSequence;
     private BattleCard? _lastPublicCard;
     private string _settlementText = "";
     private HBoxContainer _publicCards = null!;
     private Label _resolution = null!;
-    private bool InspectionOpen => _logDialog.Visible || _unitDialog.Visible;
+    private bool InspectionOpen => _logDialog.Visible || _unitDialog.Visible || _setupDialog.Visible;
 
     private void BuildPresentationDialogs()
     {
-        _unitDialog = new AcceptDialog { Title = "武将资料 · 公开信息", Exclusive = true };
+        _unitDialog = new AcceptDialog { Title = "武将资料 · 公开信息", Exclusive = true, OkButtonText = "关闭" };
         AddChild(_unitDialog);
         var column = new VBoxContainer();
         column.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         column.OffsetLeft = 16; column.OffsetTop = 16; column.OffsetRight = -16; column.OffsetBottom = -58;
         _unitDialog.AddChild(column);
-        _unitPicker = new OptionButton { CustomMinimumSize = new Vector2(0, 36), FocusMode = FocusModeEnum.All };
+        _unitPicker = new OptionButton { CustomMinimumSize = new Vector2(0, 36), FocusMode = FocusModeEnum.None };
         column.AddChild(_unitPicker);
         _unitPicker.ItemSelected += _ => UpdateUnitDetails();
         _unitText = new RichTextLabel { SizeFlagsVertical = SizeFlags.ExpandFill, SelectionEnabled = true };
         column.AddChild(_unitText);
         _logDialog.Exclusive = true;
-        _logDialog.VisibilityChanged += RestoreInspectionFocus;
-        _unitDialog.VisibilityChanged += RestoreInspectionFocus;
     }
 
     private void ShowLog()
     {
-        _inspectionFocus = GetViewport().GuiGetFocusOwner();
         _logDialog.PopupCentered(new Vector2I(850, 440));
-        _logDialog.GetOkButton().GrabFocus();
     }
 
     private void ShowUnitDetails()
     {
-        _inspectionFocus = GetViewport().GuiGetFocusOwner();
         _inspectedUnits.Clear(); _unitPicker.Clear();
         var view = _interaction.View;
         foreach (var unit in view.Combatants.OrderBy(u => u.SeatId))
@@ -55,7 +49,6 @@ public partial class BattleScreen
         _unitPicker.Selected = Math.Max(0, _inspectedUnits.IndexOf(view.PendingDecision?.ActorId ?? view.ActiveUnitId));
         UpdateUnitDetails();
         _unitDialog.PopupCentered(new Vector2I(680, 420));
-        _unitPicker.GrabFocus();
     }
 
     private void UpdateUnitDetails()
@@ -84,26 +77,6 @@ public partial class BattleScreen
         _unitText.Text = string.Join("\n", lines);
     }
 
-    private void RestoreInspectionFocus()
-    {
-        if (InspectionOpen) return;
-        if (GodotObject.IsInstanceValid(_inspectionFocus) && _inspectionFocus!.IsInsideTree()
-            && _inspectionFocus.IsVisibleInTree() && _inspectionFocus is not BaseButton { Disabled: true })
-            _inspectionFocus.GrabFocus();
-        else FocusDecision();
-        _inspectionFocus = null;
-    }
-
-    private void FocusDecision()
-    {
-        if (InspectionOpen) return;
-        if (!_confirm.Disabled) { _confirm.GrabFocus(); return; }
-        if (_selectedCard is not null && _optionActions.Keys.FirstOrDefault(b => !b.Disabled) is { } option)
-        { option.GrabFocus(); return; }
-        if (_handCards.Keys.FirstOrDefault(b => !b.Disabled) is { } card) { card.GrabFocus(); return; }
-        _optionActions.Keys.FirstOrDefault(b => !b.Disabled)?.GrabFocus();
-    }
-
     private void ResetPresentation()
     {
         // Restoring a decision never replays historical damage, skills or card reveals.
@@ -122,7 +95,7 @@ public partial class BattleScreen
                 or "play.ended" or "response.passed" or "nullification.window_closed" or "card.finished_after_gain")).ToArray();
             _settlementText = string.Join("；", visible.TakeLast(3).Select(e => DescribeEvent(view, e)));
         }
-        var center = new HBoxContainer { AnchorLeft = .25f, AnchorRight = .75f, AnchorTop = .35f, AnchorBottom = .65f,
+        var center = new HBoxContainer { AnchorLeft = .25f, AnchorRight = .75f, AnchorTop = .43f, AnchorBottom = .70f,
             Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
         center.AddThemeConstantOverride("separation", 8);
         _table.AddChild(center);
@@ -133,14 +106,14 @@ public partial class BattleScreen
             : _lastPublicCard is { } recent ? new[] { recent } : [];
         foreach (var card in cards)
         {
-            var panel = new Control { CustomMinimumSize = new Vector2(43, 80), MouseFilter = MouseFilterEnum.Pass,
+            var panel = new Control { CustomMinimumSize = new Vector2(70, 115), MouseFilter = MouseFilterEnum.Pass,
                 TooltipText = Card(card) };
             var face = Picture(_art.CardFace(card.Kind));
             face.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
-            face.Size = new Vector2(43, 60);
+            face.Size = new Vector2(70, 98);
             panel.AddChild(face);
             var rank = Text(Card(card).Split(' ')[0], 12, Paper);
-            rank.Position = new Vector2(0, 62); rank.Size = new Vector2(43, 18);
+            rank.Position = new Vector2(0, 98); rank.Size = new Vector2(70, 18);
             rank.AutowrapMode = TextServer.AutowrapMode.Off;
             rank.MouseFilter = MouseFilterEnum.Ignore;
             panel.AddChild(rank); _publicCards.AddChild(panel);
