@@ -18,7 +18,6 @@ public partial class BattleScreen : Control
     private Label _cardDetail = null!;
     private readonly Dictionary<Button, BattleCard> _handCards = new();
     private Control _table = null!;
-    private Label _tableInfo = null!;
     private OptionButton _playerCount = null!, _opponentCount = null!;
     private AcceptDialog _logDialog = null!;
     private RichTextLabel _logText = null!;
@@ -62,6 +61,7 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-smoke")) { RunSmoke(args); return; }
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
             if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
+            if (args.Contains("--battle-interaction-smoke")) { _ = RunInteractionSmoke(); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -92,7 +92,8 @@ public partial class BattleScreen : Control
         header.AddChild(Button("保存战斗", () => { _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前决策点。"; }));
         header.AddChild(Button("恢复战斗", Restore));
         header.AddChild(Button("新建战斗", NewBattle));
-        header.AddChild(Button("战斗记录", () => _logDialog.PopupCentered(new Vector2I(850, 500))));
+        header.AddChild(Button("战斗记录", ShowLog));
+        header.AddChild(Button("武将资料", ShowUnitDetails));
         header.AddChild(Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")));
         var setup = new HBoxContainer(); setup.AddThemeConstantOverride("separation", 12); root.AddChild(setup);
         var playerLabel = Text("我方人数", 16); playerLabel.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
@@ -128,10 +129,14 @@ public partial class BattleScreen : Control
         _confirm = Button("确认操作", Confirm); controls.AddChild(_confirm);
         _cancel = Button("取消选择", () => { ClearSelection(); Refresh("已取消选择，战斗状态未改变。"); });
         controls.AddChild(_cancel);
+        _confirm.TooltipText = "Tab移动焦点，空格选择当前按钮。确认后提交当前方案。";
+        _cancel.TooltipText = "只清除本次选择，不会放弃响应或结束出牌。";
         _art.StyleDecisionButton(_confirm, true);
         _art.StyleDecisionButton(_cancel, false);
         controls.AddChild(_preview);
         _feedback = Text("", 14); root.AddChild(_feedback);
+        _feedback.MaxLinesVisible = 2;
+        _feedback.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         GetViewport().GuiEmbedSubwindows = true;
         _logDialog = new AcceptDialog { Title = "战斗记录 · 仅公开信息" };
         AddChild(_logDialog);
@@ -139,6 +144,7 @@ public partial class BattleScreen : Control
         _logText.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         _logText.OffsetLeft = 16; _logText.OffsetTop = 16; _logText.OffsetRight = -16; _logText.OffsetBottom = -58;
         _logDialog.AddChild(_logText);
+        BuildPresentationDialogs();
         _aiTimer = new Godot.Timer { WaitTime = 0.35, OneShot = false };
         AddChild(_aiTimer);
         _aiTimer.Timeout += AdvanceAi;
@@ -159,13 +165,6 @@ public partial class BattleScreen : Control
             BorderWidthLeft = 2, BorderWidthRight = 2, BorderWidthTop = 2, BorderWidthBottom = 2,
             CornerRadiusTopLeft = 38, CornerRadiusTopRight = 38, CornerRadiusBottomLeft = 38, CornerRadiusBottomRight = 38 });
         _table.AddChild(tableBackground);
-        _tableInfo = Text("", 17);
-        _tableInfo.AnchorLeft = .25f; _tableInfo.AnchorRight = .75f;
-        _tableInfo.AnchorTop = .37f; _tableInfo.AnchorBottom = .63f;
-        _tableInfo.HorizontalAlignment = HorizontalAlignment.Center;
-        _tableInfo.VerticalAlignment = VerticalAlignment.Center;
-        _tableInfo.MouseFilter = MouseFilterEnum.Ignore;
-        _table.AddChild(_tableInfo);
         foreach (var seat in BattleSeatLayout.Arrange(view, _focusUnitId))
         {
             var unit = view.Combatants.Single(u => u.EntityId == seat.EntityId);
@@ -225,8 +224,7 @@ public partial class BattleScreen : Control
         }
         _prompt.Text = Prompt(view);
         UpdateLog(view);
-        _tableInfo.Text = view.Processing.Length > 0 ? "处理区\n" + string.Join("、", view.Processing.Select(Card))
-            : "三国行纪\n" + (_interaction.View.WinnerTeamId is null ? "以卡牌决胜" : "本场战斗结束");
+        UpdatePresentation(view);
         if (actorId is not null)
         {
             var actor = view.Combatants.Single(u => u.EntityId == actorId);
@@ -262,7 +260,9 @@ public partial class BattleScreen : Control
         _preview.Text = _interaction.Selection is { } selection ? "待确认：" + Describe(view, selection) : "尚未选择操作。";
         _confirm.Disabled = _interaction.Selection is null;
         _cancel.Disabled = _interaction.Selection is null && _selectedCard is null && _selectedTarget is null;
-        _feedback.Text = message;
+        _feedback.Text = message + (_settlementText.Length > 0 ? "\n" + _settlementText : "");
+        _feedback.TooltipText = _feedback.Text;
+        FocusDecision();
     }
 
     private void Confirm()
@@ -277,7 +277,7 @@ public partial class BattleScreen : Control
 
     private void AdvanceAi()
     {
-        if (!_interaction.WaitingForAi) return;
+        if (!_interaction.WaitingForAi || InspectionOpen) return;
         try
         {
             if (++_aiSteps > 4000) throw new InvalidOperationException("AI步数保护触发，请保存战斗以便排查。");
@@ -300,6 +300,7 @@ public partial class BattleScreen : Control
         var loaded = _store.Load(SavePath, _interaction.Snapshot.ContentHash);
         _interaction.Restore(loaded.State);
         ClearSelection(); _aiSteps = 0; _logVersion = -1;
+        ResetPresentation();
         Refresh(loaded.Message);
         _aiTimer.Start();
     }
@@ -316,6 +317,7 @@ public partial class BattleScreen : Control
     {
         _interaction = new(DevelopmentBattleScenario.Create(42, _playerCount.Selected + 1, _opponentCount.Selected + 1));
         ClearSelection(); _aiSteps = 0; _logVersion = -1; _focusUnitId = "development.guanyu";
+        ResetPresentation();
         Refresh($"已新建{_playerCount.Selected + 1}对{_opponentCount.Selected + 1}战斗，种子42。已切换至对应人数的独立存档槽，已有存档保留。");
         _aiTimer.Start();
     }
@@ -635,11 +637,14 @@ public partial class BattleScreen : Control
                     await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                     if (_seatButtons.Count != playerCount + opponentCount) throw new InvalidOperationException("角色框数量不匹配。");
                     var bounds = new Rect2(Vector2.Zero, _table.Size);
+                    var center = _publicCards.GetParent<Control>().GetRect();
+                    if (!bounds.Encloses(center)) throw new InvalidOperationException("中央结算区超出桌面。");
                     var buttons = _seatButtons.Values.ToArray();
                     for (var i = 0; i < buttons.Length; i++)
                     {
                         var rect = buttons[i].GetRect();
                         if (!bounds.Encloses(rect)) throw new InvalidOperationException("角色框超出桌面。");
+                        if (rect.Intersects(center)) throw new InvalidOperationException("角色框遮挡中央结算区。");
                         for (var j = 0; j < i; j++)
                             if (rect.Intersects(buttons[j].GetRect())) throw new InvalidOperationException("角色框重叠。");
                     }
@@ -675,7 +680,7 @@ public partial class BattleScreen : Control
         try
         {
             if (args.Length is not (2 or 4 or 5) || !Path.IsPathFullyQualified(args[1]))
-                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected]]");
+                throw new ArgumentException("预览用法：--battle-preview <PNG绝对路径> [我方人数 敌方人数 [log|selected|unit|settlement]]");
             if (args.Length >= 4)
             {
                 var players = int.Parse(args[2]); var opponents = int.Parse(args[3]);
@@ -686,7 +691,20 @@ public partial class BattleScreen : Control
             _aiTimer.Stop();
             if (args.Length == 5)
             {
-                if (args[4] == "log") _logDialog.PopupCentered(new Vector2I(850, 500));
+                if (args[4] == "log") ShowLog();
+                else if (args[4] == "unit") ShowUnitDetails();
+                else if (args[4] == "settlement")
+                {
+                    var steps = 0;
+                    do
+                    {
+                        if (++steps > 4000 || _interaction.View.PendingDecision is null)
+                            throw new InvalidOperationException("预览未找到处理中牌。");
+                        if (_interaction.WaitingForAi) _interaction.AdvanceAi(v => BasicBattleAi.Choose(v)?.Action);
+                        else { _interaction.Select(BasicBattleAi.Choose(_interaction.View)!.Action); _interaction.Confirm(); }
+                        ClearSelection(); Refresh("公开结算预览");
+                    } while (_interaction.View.Processing.Length == 0);
+                }
                 else if (args[4] == "selected")
                 {
                     _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.TargetId is not null))

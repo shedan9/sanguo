@@ -56,11 +56,12 @@ try {
     Invoke-Smoke 'resume' @('--battle-smoke', 'resume', $evidence) 'BATTLE_CLIENT_RESUME_OK'
     Invoke-Smoke 'layout' @('--battle-layout-smoke') 'BATTLE_LAYOUT_SMOKE_OK layouts=32'
     Invoke-Smoke 'artwork' @('--battle-artwork-smoke') 'BATTLE_ARTWORK_SMOKE_OK cards=8 portraits=2'
+    Invoke-Smoke 'interaction' @('--battle-interaction-smoke') 'BATTLE_INTERACTION_SMOKE_OK games=2'
     if ((Get-FileDigest (Join-Path $evidence 'final.json')) -cne
         (Get-FileDigest (Join-Path $evidence 'resumed-final.json'))) {
         throw 'Cross-process client battle result differs.'
     }
     Invoke-Smoke 'g0' @('--smoke') 'G0_SMOKE_OK 066d2413bb3ac61446d293248828c47eb1e704b0e930dea0e1775b28f1aaa883'
-    Write-Host 'Client button flow, AI, cross-process save/resume and G0 routing passed.'
+    Write-Host 'Client button and keyboard games, public settlement, inspection pause, save/resume and G0 routing passed.'
 }
 finally { Pop-Location }
