@@ -219,15 +219,17 @@ public partial class BattleScreen
                 PrepareDiscardPreview();
                 if (mode == "discard-selected") AutoSelectDiscards();
             }
+            else if (mode is "hover" or "drag" or "cast-animation" or "impact") await PrepareMotionPreview(mode);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-            if (mode == "target-animation")
+            if (mode is "target-animation" or "cast-animation")
             {
                 var folder = Path.GetDirectoryName(args[1])!;
                 for (var frame = 0; frame < 12; frame++)
                 {
                     await ToSignal(GetTree().CreateTimer(.07), SceneTreeTimer.SignalName.Timeout);
                     await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-                    var frameError = GetViewport().GetTexture().GetImage().SavePng(Path.Combine(folder, $"target-frame-{frame:D2}.png"));
+                    var prefix = mode == "cast-animation" ? "cast" : "target";
+                    var frameError = GetViewport().GetTexture().GetImage().SavePng(Path.Combine(folder, $"{prefix}-frame-{frame:D2}.png"));
                     if (frameError != Error.Ok) throw new IOException("无法保存动画帧。");
                 }
             }

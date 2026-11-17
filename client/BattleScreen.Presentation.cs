@@ -83,6 +83,7 @@ public partial class BattleScreen
         _presentedSequence = _interaction.ReadLog().LastOrDefault()?.Sequence ?? 0;
         _lastPublicCard = null; _settlementText = "";
         _targetLine?.ClearLine();
+        ResetBattleMotion();
     }
 
     private void UpdatePresentation(BattleView view)
@@ -138,5 +139,6 @@ public partial class BattleScreen
         _resolution.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _resolution.Visible = cards.Length > 0 || view.WinnerTeamId is not null;
         center.AddChild(_resolution);
+        if (events.Length > 0) PlayBattleMotion(view, events);
     }
 }

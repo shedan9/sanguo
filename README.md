@@ -66,6 +66,8 @@ python3 scripts/collect-ol-sources.py content/evidence/ol-public-20261112
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\verify-windows.ps1
 ```
 
+当前截图版战斗桌面支持悬停抬升放大、拖动整理手牌、拖向合法目标或中央出牌区出牌，以及飞牌、牌背摸牌、伤害/回复/技能与回合反馈。两套`check-client`均包含真实鼠标拖牌回归；动效预览参数和范围见[新版PC鼠标交互核对](docs/12-新版PC鼠标交互核对.md)。
+
 Windows开发机可在仓库根目录使用原生入口（要求锁定的SDK、Python 3；导出还要求Godot 4.7.2 .NET及匹配的导出模板）：
 
 ```powershell

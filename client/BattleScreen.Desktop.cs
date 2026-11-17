@@ -129,7 +129,8 @@ public partial class BattleScreen
         _feedback.MaxLinesVisible = 1; _feedback.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; AddChild(_feedback);
         BuildDesktopDialogs();
         _targetLine = new BattleTargetLine { Preview = PreviewTargetLine }; Place(_targetLine, 0, 0, 1, 1); AddChild(_targetLine);
-        _choiceOverlay = new Control { MouseFilter = MouseFilterEnum.Stop }; Place(_choiceOverlay, 0, 0, 1, 1); AddChild(_choiceOverlay); _choiceOverlay.Visible = false;
+        BuildMotionLayer();
+        _choiceOverlay = new Control { MouseFilter = MouseFilterEnum.Stop, ZIndex = 50 }; Place(_choiceOverlay, 0, 0, 1, 1); AddChild(_choiceOverlay); _choiceOverlay.Visible = false;
         _aiTimer = new Godot.Timer { WaitTime = .45, OneShot = false }; AddChild(_aiTimer); _aiTimer.Timeout += AdvanceAi;
         Resized += () => { if (_interaction is not null && _aiTimer is not null) Refresh(""); };
     }
@@ -236,7 +237,7 @@ public partial class BattleScreen
             var title = DesktopLabel("单机对战", 18, Gold); title.HorizontalAlignment = HorizontalAlignment.Center; Place(title, 0, .02f, 1, .15f); _sidebarContent.AddChild(title);
             var label = DesktopLabel($"我方 {view.Combatants.Count(u => u.TeamId == "a" && u.Alive)} 人  ·  敌方 {view.Combatants.Count(u => u.TeamId == "b" && u.Alive)} 人\n\n"
                 + $"{UnitName(view, view.ActiveUnitId)}的回合\n牌堆 {view.DrawCount}　弃牌 {view.DiscardPile.Length}\n\n"
-                + "点击手牌，再点击目标。\n选好后按确定，取消可重选。\n\n弃牌时可多选，或一键选择。", 13, new Color("C7BA9D"));
+                + "悬停放大，拖动整理手牌。\n拖向发光目标即可出牌；\n自用或响应牌拖入出牌区。\n也可点牌、点目标后确定。\n\n弃牌时可多选，或一键选择。", 13, new Color("C7BA9D"));
             Place(label, .04f, .19f, .96f, .98f); _sidebarContent.AddChild(label);
         }
     }
@@ -244,6 +245,7 @@ public partial class BattleScreen
     private void ToggleHandSort()
     {
         _sortByKind = !_sortByKind; _sortHand.Text = _sortByKind ? "原始顺序" : "整理手牌";
+        if (!_sortByKind) _handOrder.Clear();
         Refresh(_sortByKind ? "手牌已按牌名、花色、点数排列。" : "已恢复手牌原始顺序。");
     }
 
@@ -284,6 +286,8 @@ public partial class BattleScreen
 
     private (Vector2 From, Vector2 To)? PreviewTargetLine()
     {
+        if (_dragging && _dragTarget is { } dragTarget && _seatButtons.TryGetValue(dragTarget, out var dragSeat))
+            return (_dragFace!.GetGlobalRect().GetCenter(), dragSeat.GetGlobalRect().GetCenter());
         var target = _selectedTarget ?? _hoverTarget;
         if (_selectedCard is null || target is null || !CandidateActions(_interaction.View).Any(a => a.TargetId == target && NeedsTarget(a))
             || !_seatButtons.TryGetValue(target, out var seat)) return null;

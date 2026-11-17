@@ -58,6 +58,7 @@ try {
     Invoke-Smoke 'artwork' @('--battle-artwork-smoke') 'BATTLE_ARTWORK_SMOKE_OK cards=8 portraits=2'
     Invoke-Smoke 'interaction' @('--battle-interaction-smoke') 'BATTLE_MOUSE_SMOKE_OK games=2'
     Invoke-Smoke 'desktop' @('--battle-desktop-smoke') 'BATTLE_DESKTOP_SMOKE_OK discard=5'
+    Invoke-Smoke 'motion' @('--battle-motion-smoke') 'BATTLE_MOTION_SMOKE_OK'
     if ((Get-FileDigest (Join-Path $evidence 'final.json')) -cne
         (Get-FileDigest (Join-Path $evidence 'resumed-final.json'))) {
         throw 'Cross-process client battle result differs.'

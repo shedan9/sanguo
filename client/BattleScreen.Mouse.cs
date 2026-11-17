@@ -16,7 +16,7 @@ public partial class BattleScreen
     private readonly Dictionary<Button, BattleAction> _choiceActions = new();
     private string? _selectedSkill, _costCard, _ignoredTrick;
     private bool _refreshing;
-    private const string MouseHint = "悬停查看牌面；点击手牌，再点击发光目标。";
+    private const string MouseHint = "悬停放大牌面；拖动整理手牌，拖向发光目标出牌；也可点击选择后确定。";
 
     private static void Place(Control node, float left, float top, float right, float bottom)
     {
@@ -40,6 +40,8 @@ public partial class BattleScreen
         {
             SkipUnavailableNullifications();
             var view = _interaction.View;
+            CaptureHandOrigins();
+            ResetHandMotion();
             Clear(_table); Clear(_selfSeat); Clear(_hand); Clear(_skills);
             _seatButtons.Clear(); _handCards.Clear(); _skillButtons.Clear();
             _status.Text = $"单机对战 [{view.Combatants.Count(u => u.TeamId == "a")} 对 {view.Combatants.Count(u => u.TeamId == "b")}]　{UnitName(view, view.ActiveUnitId)}的回合";
@@ -179,6 +181,11 @@ public partial class BattleScreen
         var hand = view.Combatants.Single(u => u.EntityId == (actorId ?? _focusUnitId)).VisibleHand.AsEnumerable();
         if (_sortByKind) hand = hand.OrderBy(c => c.Kind).ThenBy(c => c.Suit, StringComparer.Ordinal).ThenBy(c => c.Rank);
         var cards = hand.ToArray();
+        var owner = actorId ?? _focusUnitId;
+        if (_handOrderOwner != owner) { _handOrder.Clear(); _handOrderOwner = owner; }
+        _handOrder.RemoveAll(id => !cards.Any(c => c.InstanceId == id));
+        foreach (var card in cards) if (!_handOrder.Contains(card.InstanceId)) _handOrder.Add(card.InstanceId);
+        if (!_sortByKind) cards = cards.OrderBy(c => _handOrder.IndexOf(c.InstanceId)).ToArray();
         var height = GetViewportRect().Size.Y * .176f; var width = height * .715f;
         var available = GetViewportRect().Size.X * .65f;
         var step = cards.Length <= 1 ? width : Math.Clamp((available - width) / Math.Max(1, cards.Length - 1), 28, width + 3);
@@ -191,6 +198,7 @@ public partial class BattleScreen
             var button = CreateCardButton(card, legal, () => SelectMouseCard(card.InstanceId));
             button.CustomMinimumSize = Vector2.Zero; button.Position = new Vector2(i * step, card.InstanceId == _selectedCard || card.InstanceId == _costCard || _selectedDiscards.Contains(card.InstanceId) ? 0 : 9); button.Size = new Vector2(width, height);
             _hand.AddChild(button); _handCards.Add(button, card);
+            BindHandMotion(button, card);
         }
     }
 

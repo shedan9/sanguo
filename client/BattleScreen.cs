@@ -28,6 +28,7 @@ public partial class BattleScreen : Control
     private string _focusUnitId = "development.guanyu";
     private readonly Dictionary<string, Button> _seatButtons = new(StringComparer.Ordinal);
     private int _aiSteps;
+    private bool _fastSmoke;
     private string SavePath
     {
         get
@@ -43,6 +44,7 @@ public partial class BattleScreen : Control
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        _fastSmoke = args.Any(a => a.StartsWith("--battle-", StringComparison.Ordinal) && a.EndsWith("smoke", StringComparison.Ordinal));
         if (args.Any(a => a == "--smoke" || a.StartsWith("--acceptance-", StringComparison.Ordinal)))
         {
             var probe = GD.Load<PackedScene>("res://scenes/Probe.tscn").Instantiate();
@@ -61,6 +63,7 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
             if (args.Contains("--battle-interaction-smoke")) { _ = RunInteractionSmoke(); return; }
             if (args.Contains("--battle-desktop-smoke")) { _ = RunDesktopSmoke(); return; }
+            if (args.Contains("--battle-motion-smoke")) { _ = RunMotionSmoke(); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -84,7 +87,7 @@ public partial class BattleScreen : Control
 
     private void AdvanceAi()
     {
-        if (!_interaction.WaitingForAi || InspectionOpen) return;
+        if (!_interaction.WaitingForAi || InspectionOpen || !_fastSmoke && MotionBusy) return;
         try
         {
             if (++_aiSteps > 4000) throw new InvalidOperationException("AI步数保护触发，请保存战斗以便排查。");
@@ -297,15 +300,11 @@ public partial class BattleScreen : Control
             _ => ""
         }) + (legal ? " 可选择；具体目标、转换技能与成本以合法方案为准。" : " 当前无合法动作。");
         button.TooltipText = details;
-        var hovering = false;
-        void UpdateHighlight()
-        {
-            var highlight = hovering || selected;
-            content.OffsetTop = highlight ? 0 : 2; content.OffsetBottom = highlight ? -4 : -2;
-            _cardDetail.Text = highlight ? details : "悬停查看牌面；点击手牌，再点击发光目标。";
-        }
-        button.MouseEntered += () => { hovering = true; UpdateHighlight(); };
-        button.MouseExited += () => { hovering = false; UpdateHighlight(); };
+        var hoverBorder = (StyleBoxFlat)border.Duplicate();
+        hoverBorder.BorderColor = Gold; hoverBorder.ShadowColor = new Color(Gold, .5f); hoverBorder.ShadowSize = 9;
+        button.AddThemeStyleboxOverride("hover", hoverBorder); button.AddThemeStyleboxOverride("pressed", hoverBorder);
+        button.MouseEntered += () => _cardDetail.Text = details;
+        button.MouseExited += () => _cardDetail.Text = MouseHint;
         return button;
     }
 
