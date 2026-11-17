@@ -115,7 +115,8 @@
       "sanguo.content": {
         "type": "Project",
         "dependencies": {
-          "Sanguo.BattleCore": "[1.0.0, )"
+          "Sanguo.BattleCore": "[1.0.0, )",
+          "Sanguo.CampaignCore": "[1.0.0, )"
         }
       },
       "sanguo.infrastructure": {

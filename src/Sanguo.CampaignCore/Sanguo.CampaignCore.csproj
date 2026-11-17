@@ -1,1 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <EmbeddedResource Include="../../content/campaigns/first-city.json" LogicalName="Sanguo.FirstCity.json" />
+  </ItemGroup>
+</Project>
