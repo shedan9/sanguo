@@ -17,6 +17,10 @@ internal sealed class DevelopmentBattleArtwork
     public Texture2D SeatFrame { get; }
     public Texture2D Guanyu { get; }
     public Texture2D Caocao { get; }
+    public Texture2D BloodEmpty { get; }
+    public Texture2D BloodGreen { get; }
+    public Texture2D BloodYellow { get; }
+    public Texture2D BloodRed { get; }
 
     public DevelopmentBattleArtwork()
     {
@@ -27,7 +31,13 @@ internal sealed class DevelopmentBattleArtwork
         Guanyu = LoadImage("portraits/guanyu-200.png");
         Caocao = LoadImage("portraits/caocao-1500.png");
         using (var seat = JsonDocument.Parse(ReadVerified(Assets + "game/seat.atlas")))
+        {
             SeatFrame = Frame(seat, Assets + "game/seat.png", "self_general_frame.png");
+            BloodEmpty = Frame(seat, Assets + "game/seat.png", "blood_empty_s.png");
+            BloodGreen = Frame(seat, Assets + "game/seat.png", "blood_green_s.png");
+            BloodYellow = Frame(seat, Assets + "game/seat.png", "blood_yellow_s.png");
+            BloodRed = Frame(seat, Assets + "game/seat.png", "blood_red_s.png");
+        }
         using (var cards = JsonDocument.Parse(ReadVerified(Assets + "cards/normal/cards.atlas")))
         {
             (BasicCardKind Kind, string Name)[] faces =

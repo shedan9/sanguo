@@ -120,6 +120,44 @@ public sealed class SourceManifestTests : IDisposable
     }
 
     [Fact]
+    public void ExplicitRecordingDeferralKeepsScreenshotAndSnapshotRequirements()
+    {
+        FreezeFixture();
+        Edit(Ui, data =>
+        {
+            data["recordingPolicy"] = "deferred";
+            data["recordingDeferralReason"] = "本轮用户明确暂缓操作录像。";
+            data["recordings"] = new JsonArray();
+            data["evidence"] = new JsonArray(Evidence("screen", "screenshot"));
+            foreach (var state in data["interactionStates"]!.AsArray()) state!["evidence"] = new JsonArray("screen");
+        });
+        Assert.True(Check().ReadyToFreeze);
+        Edit(Ui, data => data["interactionStates"]![0]!["evidence"] = new JsonArray());
+        Assert.Contains(Check().Issues, i => i.Field == "$.interactionStates[0].evidence");
+    }
+
+    [Theory]
+    [InlineData("deferred", "")]
+    [InlineData("skip", "临时跳过")]
+    public void RecordingDeferralMustBeExplicitAndExplained(string policy, string reason)
+    {
+        Edit(Ui, data => { data["recordingPolicy"] = policy; data["recordingDeferralReason"] = reason; });
+        Assert.False(Check().Success);
+    }
+
+    [Fact]
+    public void RequiredRecordingPolicyStillRejectsScreenshotOnlyFreeze()
+    {
+        FreezeFixture();
+        Edit(Ui, data =>
+        {
+            data["recordings"] = new JsonArray();
+            foreach (var state in data["interactionStates"]!.AsArray()) state!["evidence"] = new JsonArray("screen");
+        });
+        Assert.Contains(Check().Issues, i => i.Field == "$.recordings");
+    }
+
+    [Fact]
     public void ConflictingSnapshotHeadersAndUnknownStatusesAreRejected()
     {
         FreezeFixture();
@@ -229,6 +267,7 @@ public sealed class SourceManifestTests : IDisposable
         });
         Edit(Ui, data =>
         {
+            data["recordingPolicy"] = "required";
             data["theme"] = "test.theme";
             data["scale"] = 1;
             data["capturedAt"] = "2026-11-12T10:00:00+08:00";

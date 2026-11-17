@@ -7,6 +7,7 @@ public partial class BattleTargetLine : Control
 {
     public Func<(Vector2 From, Vector2 To)?>? Preview { get; set; }
     public bool HasLine { get; private set; }
+    public bool ReduceMotion { get; set; }
     private Vector2 _from, _to;
     private double _elapsed, _shotRemaining;
     private float _opacity;
@@ -24,7 +25,7 @@ public partial class BattleTargetLine : Control
     public override void _Process(double delta)
     {
         var wasVisible = HasLine;
-        _elapsed += delta;
+        if (!ReduceMotion) _elapsed += delta;
         var preview = Preview?.Invoke();
         if (preview is { } points)
         {

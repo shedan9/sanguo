@@ -49,11 +49,15 @@ public partial class BattleScreen
     {
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         var rect = control.GetGlobalRect(); var point = hand ? rect.Position + new Vector2(8, 30) : rect.GetCenter();
-        if (!GetViewportRect().HasPoint(point)) throw new InvalidOperationException("鼠标目标超出屏幕。" + control.Name);
-        GetViewport().PushInput(new InputEventMouseMotion { Position = point, GlobalPosition = point }, true);
-        GetViewport().PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, Pressed = true }, true);
+        var viewport = control.GetViewport();
+        // Embedded windows receive real pointer events through the parent viewport's popup router.
+        if (viewport is Window popup && popup != GetWindow())
+        { point += popup.Position; viewport = GetViewport(); }
+        if (!viewport.GetVisibleRect().HasPoint(point)) throw new InvalidOperationException("鼠标目标超出屏幕。" + control.Name);
+        viewport.PushInput(new InputEventMouseMotion { Position = point, GlobalPosition = point }, true);
+        viewport.PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, Pressed = true }, true);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        GetViewport().PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, Pressed = false }, true);
+        viewport.PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point, ButtonIndex = MouseButton.Left, Pressed = false }, true);
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }
 
@@ -178,7 +182,7 @@ public partial class BattleScreen
             foreach (var (button, card) in _handCards)
             {
                 button.EmitSignal(Control.SignalName.MouseEntered);
-                if (!_cardDetail.Text.StartsWith(Card(card), StringComparison.Ordinal) || button.FocusMode != FocusModeEnum.None) throw new InvalidOperationException("鼠标牌面说明错误。");
+                if (!_cardDetail.Text.StartsWith(Card(card), StringComparison.Ordinal) || button.FocusMode != FocusModeEnum.All) throw new InvalidOperationException("牌面说明或可聚焦查看能力错误。");
             }
             GD.Print("BATTLE_ARTWORK_SMOKE_OK cards=8 portraits=2"); GetTree().Quit();
         }
@@ -188,6 +192,7 @@ public partial class BattleScreen
     private async Task CapturePreview(string[] args)
     {
         _aiTimer.Stop();
+        _fastSmoke = true;
         try
         {
             if (args.Length is not (2 or 4 or 5) || !Path.IsPathFullyQualified(args[1])) throw new ArgumentException("预览参数错误。");
@@ -204,6 +209,17 @@ public partial class BattleScreen
                 }
             }
             else if (mode == "unit") ShowUnitDetails(); else if (mode == "log") ShowLog();
+            else if (mode == "settings") ShowBattleDialog(_settingsDialog);
+            else if (mode == "hand") ShowHandInspection();
+            else if (mode == "result")
+            {
+                for (var step = 0; _interaction.View.PendingDecision is not null; step++)
+                {
+                    if (step > 4000) throw new InvalidOperationException("终局预览超限。");
+                    if (_interaction.WaitingForAi) AdvanceAi(); else DriveAction(BasicBattleAi.Choose(_interaction.View)!.Action);
+                }
+                ResetBattleMotion(); ShowBattleResult();
+            }
             else if (mode == "selected")
             {
                 var card = _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.SkillId is null && NeedsTarget(a)));

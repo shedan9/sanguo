@@ -82,12 +82,21 @@ public partial class BattleScreen
         var top = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(top, 0, 0, 1, .035f); Box(top, "221F1B", "837256"); AddChild(top);
         var title = DesktopLabel("三国行纪", 19, Gold); Place(title, .012f, 0, .15f, .035f); AddChild(title);
         _status = DesktopLabel("", 12); Place(_status, .15f, 0, .65f, .035f); AddChild(_status);
-        var menu = new HBoxContainer(); Place(menu, .68f, .001f, .992f, .033f); AddChild(menu);
-        foreach (var (name, action) in new (string, Action)[] { ("保存", SaveBattle), ("读档", Restore),
-            ("新局", () => _setupDialog.PopupCentered(new Vector2I(360, 160))), ("记录", ShowLog), ("资料", ShowUnitDetails) })
+        var menu = new HBoxContainer(); Place(menu, .49f, .001f, .992f, .033f); AddChild(menu);
+        var entries = new List<(string Name, Action Action)> { (CampaignSession is null ? "保存" : "保存行程", SaveBattle),
+            (CampaignSession is null ? "读档" : "恢复行程", Restore),
+            (CampaignSession is null ? "新局" : "返回行程", () =>
+            { if (CampaignSession is null) _setupDialog.PopupCentered(new Vector2I(420, 200)); else { _aiTimer.Stop(); LeaveCampaignBattle?.Invoke(); } }),
+            ("记录", ShowLog), ("资料", ShowUnitDetails), ("手牌", ShowHandInspection),
+            ("设置", () => ShowBattleDialog(_settingsDialog)), ("说明", () => ShowBattleDialog(_helpDialog)) };
+        foreach (var (name, action) in entries)
         {
             var button = Button(name, action); DarkButton(button); button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.AddThemeFontSizeOverride("font_size", 12); menu.AddChild(button);
+            if (name == "手牌") _inspectButton = button;
+            if (name == "资料") _unitButton = button;
+            if (name == "设置") _settingsButton = button;
+            if (name == "说明") _helpButton = button;
         }
         _table = new Control { MouseFilter = MouseFilterEnum.Ignore }; Place(_table, .005f, .045f, TableRight, .714f); AddChild(_table);
         _round = DesktopLabel("", 13, Gold); _round.HorizontalAlignment = HorizontalAlignment.Right;
@@ -95,7 +104,7 @@ public partial class BattleScreen
         BuildSidebar();
         var bottom = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(bottom, 0, .80f, 1, 1); Box(bottom, "16130FD9", "5D5140"); AddChild(bottom);
         BuildEquipmentSlots();
-        _handScroll = new ScrollContainer { VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        _handScroll = new ScrollContainer { FollowFocus = true, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, FocusMode = FocusModeEnum.None };
         Place(_handScroll, .125f, .804f, .775f, .995f); AddChild(_handScroll);
         _hand = new Control(); _handScroll.AddChild(_hand);
@@ -124,7 +133,9 @@ public partial class BattleScreen
         }
         _art.StyleDecisionButton(_confirm, true); _art.StyleDecisionButton(_cancel, false);
         _preview = Text(""); _preview.Visible = false; AddChild(_preview);
-        _cardDetail = Text(MouseHint); _cardDetail.Visible = false; AddChild(_cardDetail);
+        _cardDetail = DesktopLabel(MouseHint, 12, new Color("D1C1A0"));
+        _cardDetail.MaxLinesVisible = 1; _cardDetail.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        Place(_cardDetail, .15f, .61f, .77f, .64f); AddChild(_cardDetail);
         _feedback = DesktopLabel("", 12, new Color("D7C8A9")); Place(_feedback, .19f, .643f, .73f, .673f);
         _feedback.MaxLinesVisible = 1; _feedback.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; AddChild(_feedback);
         BuildDesktopDialogs();
@@ -132,7 +143,7 @@ public partial class BattleScreen
         BuildMotionLayer();
         _choiceOverlay = new Control { MouseFilter = MouseFilterEnum.Stop, ZIndex = 50 }; Place(_choiceOverlay, 0, 0, 1, 1); AddChild(_choiceOverlay); _choiceOverlay.Visible = false;
         _aiTimer = new Godot.Timer { WaitTime = .45, OneShot = false }; AddChild(_aiTimer); _aiTimer.Timeout += AdvanceAi;
-        Resized += () => { if (_interaction is not null && _aiTimer is not null) Refresh(""); };
+        Resized += () => { if (_interaction is not null && _aiTimer is not null && !_applyingScale && !_leavingBattle) Refresh(""); };
     }
 
     private void BuildEquipmentSlots()
@@ -140,13 +151,17 @@ public partial class BattleScreen
         var equipment = new Control { MouseFilter = MouseFilterEnum.Pass,
             TooltipText = "当前开发规则尚未接入装备与判定牌。" }; Place(equipment, .006f, .806f, .116f, .992f); AddChild(equipment);
         var slots = new[] { ("equip_wuqi", "武器"), ("equip_fangju", "防具"),
-            ("equip_jiayima", "+1 坐骑"), ("equip_jianyima", "−1 坐骑") };
+            ("equip_jiayima", "+1 坐骑"), ("equip_jianyima", "−1 坐骑"), ("", "判定区") };
         for (var i = 0; i < slots.Length; i++)
         {
-            var slot = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(slot, 0, i * .25f, 1, i * .25f + .23f);
+            var slot = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(slot, 0, i * .20f, 1, i * .20f + .18f);
             Box(slot, "211E1B", "827761"); equipment.AddChild(slot);
-            var icon = Picture(_art.Sprite("seat", slots[i].Item1), TextureRect.StretchModeEnum.KeepAspectCentered);
-            Place(icon, .025f, .1f, .22f, .9f); icon.Modulate = new Color(.7f, .65f, .55f); slot.AddChild(icon);
+            _reservedSlots.Add(slot);
+            if (slots[i].Item1.Length > 0)
+            {
+                var icon = Picture(_art.Sprite("seat", slots[i].Item1), TextureRect.StretchModeEnum.KeepAspectCentered);
+                Place(icon, .025f, .1f, .22f, .9f); icon.Modulate = new Color(.7f, .65f, .55f); slot.AddChild(icon);
+            }
             var label = DesktopLabel(slots[i].Item2 + "　—", 12, new Color("938A77")); Place(label, .24f, 0, 1, 1); slot.AddChild(label);
         }
     }
@@ -154,9 +169,16 @@ public partial class BattleScreen
     private void BuildDesktopDialogs()
     {
         GetViewport().GuiEmbedSubwindows = true;
+        Theme.SetStylebox("panel", "AcceptDialog", new StyleBoxFlat { BgColor = new Color("25231F"), BorderColor = Gold,
+            BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1 });
         _logDialog = new AcceptDialog { Title = "战斗记录", OkButtonText = "关闭" }; AddChild(_logDialog);
         _logText = new RichTextLabel { ScrollFollowing = true, SelectionEnabled = true }; Place(_logText, .03f, .03f, .97f, .85f); _logDialog.AddChild(_logText);
         BuildPresentationDialogs();
+        BuildKeyboardHelp(); BuildCardInspection();
+        BuildResultDialog();
+        foreach (var dialog in new[] { _resultDialog, _unitDialog, _settingsDialog, _handDialog, _helpDialog, _logDialog })
+        { DarkButton(dialog.GetOkButton()); dialog.GetOkButton().CustomMinimumSize = new Vector2(110, 32); }
+        _logDialog.Exclusive = _unitDialog.Exclusive = _settingsDialog.Exclusive = _helpDialog.Exclusive = _handDialog.Exclusive = true;
         _setupDialog = new AcceptDialog { Title = "新建战斗", OkButtonText = "开始" }; AddChild(_setupDialog);
         var setup = new HBoxContainer(); Place(setup, .05f, .1f, .95f, .55f); _setupDialog.AddChild(setup);
         setup.AddChild(Text("我方")); _playerCount = TeamSizeOption(); _playerCount.FocusMode = FocusModeEnum.None; setup.AddChild(_playerCount);
@@ -164,6 +186,8 @@ public partial class BattleScreen
         _setupDialog.Confirmed += NewBattle;
         var probe = Button("G0抽牌试验", () => GetTree().ChangeSceneToFile("res://scenes/Probe.tscn")); DarkButton(probe);
         Place(probe, .05f, .57f, .50f, .77f); _setupDialog.AddChild(probe);
+        var campaign = Button("首城行程", () => { _setupDialog.Hide(); GetTree().ChangeSceneToFile("res://scenes/Campaign.tscn"); }); DarkButton(campaign);
+        Place(campaign, .53f, .57f, .95f, .77f); _setupDialog.AddChild(campaign);
     }
 
     private void BuildSidebar()
@@ -228,7 +252,7 @@ public partial class BattleScreen
             {
                 var id = unit.EntityId;
                 var button = Button($"{unit.SeatId + 1}　{UnitName(view, id)}　{unit.Hp}/{unit.MaxHp}", () =>
-                { ShowUnitDetails(); _unitPicker.Selected = _inspectedUnits.IndexOf(id); UpdateUnitDetails(); });
+                { ShowUnitDetails(); _unitChoice.Selected = view.Combatants.OrderBy(u => u.SeatId).Select(u => u.EntityId).ToList().IndexOf(id); RenderUnitDetails(); });
                 DarkButton(button); button.AddThemeFontSizeOverride("font_size", 12); button.CustomMinimumSize = new Vector2(0, 25); list.AddChild(button);
             }
         }

@@ -27,3 +27,10 @@ cmp build/skill-battle/final.json build/skill-battle/resumed-slash/final.json
 "$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-ai 42 build/ai-battle
 "$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --battle-ai-resume build/ai-battle/ai-decision.json build/ai-battle/resumed-ai
 cmp build/ai-battle/final.json build/ai-battle/resumed-ai/final.json
+
+# 首城战役三条出身及独立进程恢复；与G0和自由战斗槽位隔离。
+"$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --campaign-first-city 42 build/first-city
+for origin in damage control tank; do
+    "$root/scripts/dotnet.sh" run --project tools/Sanguo.Simulator --no-restore -- --campaign-resume "build/first-city/$origin/checkpoint.json" "build/first-city/$origin/resumed"
+    cmp "build/first-city/$origin/final.json" "build/first-city/$origin/resumed/final.json"
+done

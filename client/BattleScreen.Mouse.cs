@@ -30,20 +30,29 @@ public partial class BattleScreen
 
     private void BuildInterface() => BuildScreenshotInterface();
 
-    private void SaveBattle() { _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前牌局。"; }
+    private void SaveBattle()
+    {
+        if (CampaignSession is not null) { SaveCampaign?.Invoke(); _feedback.Text = "已保存行程与当前牌局。"; return; }
+        _store.Save(SavePath, _interaction.Snapshot); _feedback.Text = "已保存当前牌局。";
+    }
 
-    private void Refresh(string message)
+    private void Refresh(string message, FocusRequest? focusRequest = null)
     {
         if (_refreshing) return;
         _refreshing = true;
         try
         {
+            var owner = GetViewport().GuiGetFocusOwner();
+            var previousFocus = CaptureBattleFocus(owner);
+            var hadFocus = CanFocus(owner);
+            ClearCardInspection();
             SkipUnavailableNullifications();
             var view = _interaction.View;
+            _targetLine.ReduceMotion = _reduceMotion;
             CaptureHandOrigins();
             ResetHandMotion();
             Clear(_table); Clear(_selfSeat); Clear(_hand); Clear(_skills);
-            _seatButtons.Clear(); _handCards.Clear(); _skillButtons.Clear();
+            _seatButtons.Clear(); _handCards.Clear(); _skillButtons.Clear(); _processingCards.Clear(); _handInspectionDetails.Clear();
             _status.Text = $"单机对战 [{view.Combatants.Count(u => u.TeamId == "a")} 对 {view.Combatants.Count(u => u.TeamId == "b")}]　{UnitName(view, view.ActiveUnitId)}的回合";
             if (_discardVersion != view.StateVersion) { _selectedDiscards.Clear(); _discardVersion = view.StateVersion; }
             var actorId = view.PendingDecision?.ControllerId == "player" ? view.PendingDecision.ActorId : null;
@@ -65,6 +74,7 @@ public partial class BattleScreen
             UpdateLog(view); _sideLog.Text = _logText.Text; UpdatePresentation(view);
             RenderSkills(view, actorId); RenderMouseHand(view, actorId); ResolveMouseSelection(view);
             _prompt.Text = MousePrompt(view);
+            if (CampaignSession is not null && view.WinnerTeamId is not null) _prompt.Text += " · 请返回行程记录战果";
             if (view.Response is null && actorId is not null)
                 _prompt.Text = _selectedSkill switch
                 {
@@ -83,6 +93,9 @@ public partial class BattleScreen
             _feedback.Text = _settlementText.Length > 0 ? _settlementText : message; _feedback.TooltipText = message + "\n" + _settlementText;
             UpdateDesktopChrome(view);
             RenderHandChoice(view);
+            if (_handDialog.Visible) UpdateHandInspection();
+            if (focusRequest is not null || hadFocus)
+                ScheduleBattleFocus(focusRequest ?? (_interaction.Selection is not null ? new(FocusArea.Confirm) : previousFocus ?? new(FocusArea.Default)), previousFocus is null ? owner : null);
         }
         finally { _refreshing = false; }
     }
@@ -182,14 +195,21 @@ public partial class BattleScreen
         if (_sortByKind) hand = hand.OrderBy(c => c.Kind).ThenBy(c => c.Suit, StringComparer.Ordinal).ThenBy(c => c.Rank);
         var cards = hand.ToArray();
         var owner = actorId ?? _focusUnitId;
-        if (_handOrderOwner != owner) { _handOrder.Clear(); _handOrderOwner = owner; }
+        if (_handOrderOwner != owner)
+        {
+            if (_handOrderOwner is { } previousOwner) _ordersByOwner[previousOwner] = [.. _handOrder];
+            _handOrder.Clear();
+            if (_ordersByOwner.TryGetValue(owner, out var previousOrder)) _handOrder.AddRange(previousOrder);
+            _handOrderOwner = owner;
+        }
         _handOrder.RemoveAll(id => !cards.Any(c => c.InstanceId == id));
         foreach (var card in cards) if (!_handOrder.Contains(card.InstanceId)) _handOrder.Add(card.InstanceId);
         if (!_sortByKind) cards = cards.OrderBy(c => _handOrder.IndexOf(c.InstanceId)).ToArray();
-        var height = GetViewportRect().Size.Y * .176f; var width = height * .715f;
+        // Reserve scrollbar space even when the hand overflows; the row must fit above the window edge.
+        var height = Math.Max(72, GetViewportRect().Size.Y * .191f - 28); var width = height * .715f;
         var available = GetViewportRect().Size.X * .65f;
-        var step = cards.Length <= 1 ? width : Math.Clamp((available - width) / Math.Max(1, cards.Length - 1), 28, width + 3);
-        _hand.CustomMinimumSize = new Vector2(Math.Max(available, step * Math.Max(0, cards.Length - 1) + width), height + 10);
+        var step = cards.Length <= 1 ? width : Math.Clamp((available - width) / Math.Max(1, cards.Length - 1), Math.Min(28, width), width + 3);
+        _hand.CustomMinimumSize = new Vector2(step * Math.Max(0, cards.Length - 1) + width, height + 10);
         for (var i = 0; i < cards.Length; i++)
         {
             var card = cards[i];
@@ -238,7 +258,7 @@ public partial class BattleScreen
         if (candidates.Length == 1) _interaction.Select(candidates[0]);
     }
 
-    private void CancelMouseSelection() { ClearSelection(); _targetLine.ClearLine(); Refresh("已取消选择。 "); }
+    private void CancelMouseSelection() { var card = _selectedCard; ClearSelection(); _targetLine.ClearLine(); Refresh("已取消选择。", new(FocusArea.Hand, card)); }
 
     private void SubmitImmediate(BattleActionKind kind)
     {

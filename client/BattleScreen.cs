@@ -8,6 +8,10 @@ namespace Sanguo.Client;
 
 public partial class BattleScreen : Control
 {
+    public FirstCitySession? CampaignSession { get; set; }
+    public Action? LeaveCampaignBattle { get; set; }
+    public Action? SaveCampaign { get; set; }
+    public Action? LoadCampaign { get; set; }
     private static readonly Color Paper = new("EDE3CF"), Gold = new("C3A66A"), Ink = new("252B29");
     private BattleInteraction _interaction = null!;
     private readonly BasicBattleFileSaveStore _store = new();
@@ -17,6 +21,8 @@ public partial class BattleScreen : Control
     private Label _cardDetail = null!;
     private readonly Dictionary<Button, BattleCard> _handCards = new();
     private Control _table = null!;
+    private Control _processingPanel = null!;
+    private readonly Dictionary<Control, ProcessingCardView> _processingCards = new();
     private OptionButton _playerCount = null!, _opponentCount = null!;
     private AcceptDialog _logDialog = null!;
     private RichTextLabel _logText = null!;
@@ -33,6 +39,7 @@ public partial class BattleScreen : Control
     {
         get
         {
+            if (_keyboardSavePath is { } testPath) return testPath;
             var units = _interaction.View.Combatants;
             var players = units.Count(u => u.TeamId == "a");
             var opponents = units.Count(u => u.TeamId == "b");
@@ -44,7 +51,7 @@ public partial class BattleScreen : Control
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
-        _fastSmoke = args.Any(a => a.StartsWith("--battle-", StringComparison.Ordinal) && a.EndsWith("smoke", StringComparison.Ordinal));
+        _fastSmoke = args.Any(a => a.EndsWith("smoke", StringComparison.Ordinal));
         if (args.Any(a => a == "--smoke" || a.StartsWith("--acceptance-", StringComparison.Ordinal)))
         {
             var probe = GD.Load<PackedScene>("res://scenes/Probe.tscn").Instantiate();
@@ -52,11 +59,17 @@ public partial class BattleScreen : Control
             QueueFree();
             return;
         }
+        if (CampaignSession is null && (args.Contains("--campaign-smoke") || args.Contains("--campaign-preview")))
+        {
+            Callable.From(() => GetTree().ChangeSceneToFile("res://scenes/Campaign.tscn")).CallDeferred(); return;
+        }
         try
         {
-            _interaction = new(DevelopmentBattleScenario.Create());
+            _interaction = new(CampaignSession?.ActiveBattle ?? DevelopmentBattleScenario.Create());
+            _focusUnitId = _interaction.View.Combatants.First(u => u.TeamId == "a").EntityId;
             _art = new DevelopmentBattleArtwork();
             BuildInterface();
+            LoadPresentationSettings(args.Any(a => a.StartsWith("--battle-", StringComparison.Ordinal)) || args.Contains("--campaign-smoke"));
             Refresh("点击手牌和目标，再点确定；取消选择不会消耗牌。");
             if (args.Contains("--battle-smoke")) { RunSmoke(args); return; }
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
@@ -64,6 +77,11 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-interaction-smoke")) { _ = RunInteractionSmoke(); return; }
             if (args.Contains("--battle-desktop-smoke")) { _ = RunDesktopSmoke(); return; }
             if (args.Contains("--battle-motion-smoke")) { _ = RunMotionSmoke(); return; }
+            if (args.Contains("--battle-quality-smoke")) { _ = RunQualitySmoke(); return; }
+            if (args.Contains("--battle-processing-smoke")) { _ = RunProcessingSmoke(); return; }
+            if (args.Contains("--battle-inspection-smoke")) { _ = RunInspectionSmoke(); return; }
+            if (args.Contains("--battle-keyboard-smoke")) { _ = RunKeyboardSmoke(args); return; }
+            if (args.Contains("--battle-presentation-smoke")) { _ = RunPresentationSmoke(); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -107,6 +125,7 @@ public partial class BattleScreen : Control
 
     private void Restore()
     {
+        if (CampaignSession is not null) { LoadCampaign?.Invoke(); return; }
         var loaded = _store.Load(SavePath, _interaction.Snapshot.ContentHash);
         _interaction.Restore(loaded.State);
         ClearSelection(); _aiSteps = 0; _logVersion = -1;
@@ -234,7 +253,12 @@ public partial class BattleScreen : Control
         return label;
     }
 
-    private static string UnitName(BattleView view, string id) => view.Combatants.FirstOrDefault(u => u.EntityId == id)?.Profile switch
+    private static string UnitName(BattleView view, string id) => id switch
+    {
+        "protagonist" => "主角", "companion.volunteer" => "同行乡勇", "guard.1" => "守军一", "guard.2" => "守军二",
+        _ => BattleUnitName(view, id)
+    };
+    private static string BattleUnitName(BattleView view, string id) => view.Combatants.FirstOrDefault(u => u.EntityId == id)?.Profile switch
     {
         BattleProfile.GuanyuStandard => "关羽", BattleProfile.CaocaoStandard => "曹操",
         BattleProfile.ProtagonistFenjiI => "乡勇", _ => view.Combatants.FirstOrDefault(u => u.EntityId == id) is { } unit
@@ -300,6 +324,8 @@ public partial class BattleScreen : Control
             _ => ""
         }) + (legal ? " 可选择；具体目标、转换技能与成本以合法方案为准。" : " 当前无合法动作。");
         button.TooltipText = details;
+        _handInspectionDetails[button] = details;
+        BindCardInspection(button, card, details);
         var hoverBorder = (StyleBoxFlat)border.Duplicate();
         hoverBorder.BorderColor = Gold; hoverBorder.ShadowColor = new Color(Gold, .5f); hoverBorder.ShadowSize = 9;
         button.AddThemeStyleboxOverride("hover", hoverBorder); button.AddThemeStyleboxOverride("pressed", hoverBorder);
@@ -323,7 +349,7 @@ public partial class BattleScreen : Control
     }
     private Button Button(string label, Action action)
     {
-        var button = new Button { Text = label, CustomMinimumSize = new Vector2(130, 42), FocusMode = FocusModeEnum.None };
+        var button = new Button { Text = label, CustomMinimumSize = new Vector2(130, 42), FocusMode = FocusModeEnum.All };
         button.AddThemeColorOverride("font_color", Ink);
         button.AddThemeColorOverride("font_hover_color", Ink);
         button.AddThemeColorOverride("font_pressed_color", Ink);
@@ -338,6 +364,7 @@ public partial class BattleScreen : Control
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SaveException or ArgumentException)
             { _feedback.Text = ex.Message; }
         };
+        button.FocusEntered += () => _ = RevealBattleFocus(button);
         return button;
     }
     private static void Clear(Node parent)

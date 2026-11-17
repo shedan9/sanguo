@@ -14,11 +14,14 @@ public partial class BattleScreen
     private Tween? _hoverTween;
     private BattleCard? _pointerCard;
     private Vector2 _pointerStart, _pointerOffset;
+    private Vector2 _dragPoint;
+    private bool _motionConnected;
     private bool _dragging;
     private string? _dragTarget, _handOrderOwner;
     private long _pointerVersion;
     private ulong _motionUntil;
     private readonly List<string> _handOrder = [];
+    private readonly Dictionary<string, List<string>> _ordersByOwner = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Rect2> _handOrigins = new(StringComparer.Ordinal);
     private int _flightCount, _impactCount;
     private bool MotionBusy => _pointerCard is not null || Time.GetTicksMsec() < _motionUntil;
@@ -38,12 +41,14 @@ public partial class BattleScreen
         _dropHint = DesktopLabel("拖至此处出牌", 18, Gold);
         _dropHint.HorizontalAlignment = HorizontalAlignment.Center;
         Place(_dropHint, .03f, .1f, .97f, .9f); _dropZone.AddChild(_dropHint);
-        GetWindow().FocusExited += () =>
-        {
-            var wasDragging = _dragging;
-            ResetHandMotion();
-            if (wasDragging) Refresh("已收回手牌。");
-        };
+        GetWindow().FocusExited += OnBattleWindowFocusExited;
+        _motionConnected = true;
+    }
+
+    private void OnBattleWindowFocusExited()
+    {
+        var wasDragging = _dragging; ResetHandMotion();
+        if (wasDragging && IsInsideTree()) Refresh("已收回手牌。");
     }
 
     private Panel MotionFace(BattleCard? card, Vector2 size)
@@ -94,7 +99,7 @@ public partial class BattleScreen
 
     private void LiftHandCard(Button button, BattleCard card)
     {
-        if (_dragging || _pointerCard is not null || InspectionOpen || _choiceOverlay.Visible || _hoverButton == button) return;
+        if (_reduceMotion || _dragging || _pointerCard is not null || InspectionOpen || _choiceOverlay.Visible || _hoverButton == button) return;
         LowerHandCard(_hoverButton);
         _hoverButton = button;
         _hoverFace = MotionFace(card, button.Size);
@@ -135,14 +140,19 @@ public partial class BattleScreen
 
     private void ResetBattleMotion()
     {
-        ResetHandMotion(); _motionUntil = 0; _handOrigins.Clear(); _handOrder.Clear(); _handOrderOwner = null;
+        ResetHandMotion(); _motionUntil = 0; _handOrigins.Clear(); _handOrder.Clear(); _handOrderOwner = null; _ordersByOwner.Clear();
         if (IsInstanceValid(_motionLayer))
             foreach (var child in _motionLayer.GetChildren()) if (child != _dropZone) { _motionLayer.RemoveChild(child); child.QueueFree(); }
     }
 
     public override void _Input(InputEvent input)
     {
-        if (_pointerCard is null) return;
+        if (_pointerCard is null) { HandleKeyboardInput(input); return; }
+        if (input is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true }
+            or InputEventKey { Keycode: Key.Escape, Pressed: true, Echo: false })
+        {
+            ResetHandMotion(); Refresh("已收回手牌。"); GetViewport().SetInputAsHandled(); return;
+        }
         if (InspectionOpen || _choiceOverlay.Visible || _pointerVersion != _interaction.View.StateVersion)
         { ResetHandMotion(); return; }
         if (input is InputEventMouseMotion motion)
@@ -156,6 +166,7 @@ public partial class BattleScreen
             }
             if (!_dragging) return;
             _dragFace!.GlobalPosition = motion.Position - _pointerOffset;
+            _dragPoint = motion.Position;
             _dragFace.Rotation = Mathf.Clamp((motion.Position.X - _pointerStart.X) / 1800, -.12f, .12f);
             UpdateDragTarget(motion.Position);
             GetViewport().SetInputAsHandled();
@@ -237,6 +248,7 @@ public partial class BattleScreen
 
     private void FlyCard(BattleCard? card, Vector2 from, Vector2 to, int index = 0, bool drawing = false)
     {
+        if (_reduceMotion) return;
         _flightCount++;
         _motionUntil = Math.Max(_motionUntil, Time.GetTicksMsec() + 820 + (ulong)Math.Max(0, index) * 45);
         var height = GetViewportRect().Size.Y * .16f;
@@ -265,13 +277,13 @@ public partial class BattleScreen
         var tween = CreateTween().BindNode(label); tween.TweenInterval(delay);
         tween.TweenCallback(Callable.From(() =>
         {
-            if (!impact || !IsInstanceValid(_motionLayer)) return;
+            if (_reduceMotion || !impact || !IsInstanceValid(_motionLayer)) return;
             var effect = new BattleImpactEffect { Position = point, Tint = color, Slash = slash };
             _motionLayer.AddChild(effect); _impactCount++;
         }));
         tween.TweenProperty(label, "modulate:a", 1f, .10);
         tween.SetParallel();
-        tween.TweenProperty(label, "position:y", label.Position.Y - 44, .75).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+        tween.TweenProperty(label, "position:y", label.Position.Y - (_reduceMotion ? 0 : 44), .75).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
         tween.TweenProperty(label, "modulate:a", 0f, .3).SetDelay(.52);
         tween.Chain().TweenCallback(Callable.From(label.QueueFree));
     }
@@ -321,11 +333,22 @@ public partial class BattleScreen
             for (var i = 0; i < Math.Min(4, draws.Count()); i++) FlyCard(null, deck, destination, i, drawing: true);
             FloatFeedback($"摸牌 +{draws.Count()}", destination, Gold, delay: .1);
         }
-        if (revealed.Count > 0)
+        if (!_reduceMotion && revealed.Count > 0)
         {
             _publicCards.Modulate = new Color(1, 1, 1, 0);
             var tween = CreateTween().BindNode(_publicCards); tween.TweenInterval(.24);
             tween.TweenProperty(_publicCards, "modulate:a", 1f, .16);
         }
+    }
+
+    private void UpdateHandMotion(double delta)
+    {
+        if (_hoverButton is { } hovered && (!_handScroll.GetGlobalRect().Intersects(hovered.GetGlobalRect()) || InspectionOpen))
+            LowerHandCard(hovered);
+        if (!_dragging) return;
+        var rect = _handScroll.GetGlobalRect();
+        if (_dragPoint.Y < rect.Position.Y - 24 || _dragPoint.Y > rect.End.Y + 24) return;
+        var direction = _dragPoint.X < rect.Position.X + 28 ? -1 : _dragPoint.X > rect.End.X - 28 ? 1 : 0;
+        if (direction != 0) _handScroll.ScrollHorizontal += direction * Math.Max(1, (int)(640 * delta));
     }
 }

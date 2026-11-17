@@ -56,7 +56,7 @@ def package(root=ROOT):
     built_on = platform.system() + "-" + ("x64" if platform.machine().lower() in {"amd64", "x86_64"} else platform.machine().lower())
     (OUTPUT / "验收说明.txt").write_text(
         "三国行纪 G0 Windows x64内部验证包\n\n"
-        "范围：G0固定种子抽牌及双方各1至4人的战斗开发原型，默认2对2；完整P0与OL视觉还原未完成。\n"
+        "范围：G0固定种子抽牌、双方各1至4人的战斗开发版（默认2对2）及三线首城开发行程；完整游戏、P0与OL视觉还原未完成。\n"
         "美术：内嵌已采集的关羽、曹操立绘与PC武将框、八种卡面和按钮图集，仅供内部开发验证；正式人物内容未接入，公开分发范围待确认。\n"
         "请复制整个目录，保留data_Sanguo.Client_windows_x86_64及licenses。\n"
         "包含.NET 10运行时；无开发SDK设备能否运行仍待Windows真机确认。\n\n"
@@ -68,6 +68,9 @@ def package(root=ROOT):
         "用鼠标点手牌、点目标并确定；技能先点技能按钮，奋击成本再点另一张手牌，无动作方案列表。\n"
         "悬停手牌应平滑抬升放大；拖动可整理手牌（灰置牌也可移动），拖向发光目标可松手出牌；自用/响应牌拖入中央出牌区。\n"
         "无效放置应回弹且不扣牌；确认飞牌、牌背摸牌、命中斩痕/伤害飘字、回复光环及技能/回合反馈；读档后不重播旧动画。\n"
+        "手牌与处理区可查看完整牌面和用途；顶部手牌按钮打开只读一览。设置支持缩放和减少动态，后者停用飞牌与粒子。\n"
+        "拖牌靠近手牌区两侧应自动滚动；切换友军保留各自排序；右键、Esc或窗口失焦可收回拖牌，不消耗牌。\n"
+        "终局显示实际伤害、回复和存活统计，可再来一局或返回行程。新局弹层中的首城行程可进入三条开发路线，战役保存包含当前牌局。\n"
         "金色流动指向线从选中牌指向目标，取消即清除，出牌后短暂淡出；检查目标红框与回合绿框。\n"
         "弃牌时多选或一键选择，选满所需数量才能确定；取消不扣牌。整理手牌和侧栏切换/收起不推进战斗。\n"
         "无懈无法响应时略过；有牌时点无懈后确定，或点不出/本次锦囊不再询问；拆顺在弹层中点牌背。\n"
@@ -89,7 +92,7 @@ def package(root=ROOT):
             hashes.append({"path": path.relative_to(OUTPUT).as_posix(), "bytes": path.stat().st_size,
                            "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
     manifest = {"scope": "g0-probe", "engine": "0.1.0-g0", "godot": "4.7.2",
-                "developmentScopes": ["g0-probe", "client-battle-development.v1"],
+                "developmentScopes": ["g0-probe", "client-battle-development.v1", "campaign.first-city-development.v1"],
                 "artworkUsage": "internal-development-only",
                 "sdk": "10.0.404", "target": "win-x64", "builtOn": built_on,
                 "testedOnWindows": False, "exportWarnings": export_warnings, "files": hashes}
