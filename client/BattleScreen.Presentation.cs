@@ -82,6 +82,7 @@ public partial class BattleScreen
         // Restoring a decision never replays historical damage, skills or card reveals.
         _presentedSequence = _interaction.ReadLog().LastOrDefault()?.Sequence ?? 0;
         _lastPublicCard = null; _settlementText = "";
+        _targetLine?.ClearLine();
     }
 
     private void UpdatePresentation(BattleView view)
@@ -94,26 +95,30 @@ public partial class BattleScreen
             var visible = events.Where(e => e.Code is not ("card.drawn" or "card.discarded" or "turn.ended"
                 or "play.ended" or "response.passed" or "nullification.window_closed" or "card.finished_after_gain")).ToArray();
             _settlementText = string.Join("；", visible.TakeLast(3).Select(e => DescribeEvent(view, e)));
+            var directed = events.LastOrDefault(e => e.Code is "slash.used" or "duel.used" or "dismantlement.used" or "snatch.used");
+            if (directed is not null) PlayPublicTargetLine(view, directed.ActorId, directed.TargetId);
         }
-        var center = new HBoxContainer { AnchorLeft = .25f, AnchorRight = .75f, AnchorTop = .43f, AnchorBottom = .70f,
+        var center = new VBoxContainer { AnchorLeft = .28f, AnchorRight = .72f, AnchorTop = .42f, AnchorBottom = .78f,
             Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
         center.AddThemeConstantOverride("separation", 8);
         _table.AddChild(center);
-        _publicCards = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+        _publicCards = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore, Alignment = BoxContainer.AlignmentMode.Center };
         center.AddChild(_publicCards);
         // Processing cards are public. Never derive a face from private hands or internal events.
         var cards = view.Processing.Length > 0 ? view.Processing.TakeLast(3).ToArray()
             : _lastPublicCard is { } recent ? new[] { recent } : [];
         foreach (var card in cards)
         {
-            var panel = new Control { CustomMinimumSize = new Vector2(70, 115), MouseFilter = MouseFilterEnum.Pass,
+            var height = GetViewportRect().Size.Y * .16f;
+            var width = height * .715f;
+            var panel = new Control { CustomMinimumSize = new Vector2(width, height + 18), MouseFilter = MouseFilterEnum.Pass,
                 TooltipText = Card(card) };
             var face = Picture(_art.CardFace(card.Kind));
             face.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
-            face.Size = new Vector2(70, 98);
+            face.Size = new Vector2(width, height);
             panel.AddChild(face);
             var rank = Text(Card(card).Split(' ')[0], 12, Paper);
-            rank.Position = new Vector2(0, 98); rank.Size = new Vector2(70, 18);
+            rank.Position = new Vector2(0, height); rank.Size = new Vector2(width, 18);
             rank.AutowrapMode = TextServer.AutowrapMode.Off;
             rank.MouseFilter = MouseFilterEnum.Ignore;
             panel.AddChild(rank); _publicCards.AddChild(panel);
@@ -129,6 +134,9 @@ public partial class BattleScreen
         else if (view.WinnerTeamId is { } winner) _resolution.Text += winner == "a" ? "\n我方获胜" : "\n敌方获胜";
         else _resolution.Text += "\n" + UnitName(view, view.ActiveUnitId) + "的回合";
         _resolution.TooltipText = _resolution.Text;
+        _resolution.HorizontalAlignment = HorizontalAlignment.Center;
+        _resolution.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _resolution.Visible = cards.Length > 0 || view.WinnerTeamId is not null;
         center.AddChild(_resolution);
     }
 }

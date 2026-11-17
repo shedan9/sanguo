@@ -1,0 +1,33 @@
+{
+  "captured": "2026-11-17",
+  "official_client_version": "unverified",
+  "files": [
+    {
+      "path": "discard-interaction.png",
+      "sha256": "08696774c4ecde7bacd50b9127d38f6a50f851fb06b929b343a2a3080bd97738",
+      "bytes": 3787746,
+      "source": "user-provided",
+      "purpose": "Only discard interaction; custom grass background excluded by user",
+      "width": 2288,
+      "height": 1265
+    },
+    {
+      "path": "identity-desktop.png",
+      "sha256": "82d864d430754c8f4ff7dee75d393194dbdcda57240c5963da00e8aac95a504a",
+      "bytes": 2155628,
+      "source": "user-provided",
+      "purpose": "Primary single-general desktop layout reference",
+      "width": 1693,
+      "height": 945
+    },
+    {
+      "path": "target-line.png",
+      "sha256": "7b10effee1edb820eff5bbfb55312e3fbf6ea44f14d51e1b990d10cf6dbb9a44",
+      "bytes": 1889780,
+      "source": "user-provided",
+      "purpose": "Animated targeting line reference; red annotation rectangle excluded",
+      "width": 1692,
+      "height": 953
+    }
+  ]
+}

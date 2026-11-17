@@ -13,6 +13,7 @@ internal sealed class DevelopmentBattleArtwork
     private readonly Dictionary<string, Texture2D> _images = new(StringComparer.Ordinal);
     private readonly Dictionary<BasicCardKind, Texture2D> _cards = new();
     private readonly Dictionary<(bool Confirm, string State), Texture2D> _buttons = new();
+    private readonly Dictionary<string, Texture2D> _sprites = new(StringComparer.Ordinal);
     public Texture2D SeatFrame { get; }
     public Texture2D Guanyu { get; }
     public Texture2D Caocao { get; }
@@ -47,6 +48,15 @@ internal sealed class DevelopmentBattleArtwork
     }
 
     public Texture2D CardFace(BasicCardKind kind) => _cards[kind];
+    public Texture2D Sprite(string atlas, string name)
+    {
+        var key = atlas + "/" + name;
+        if (_sprites.TryGetValue(key, out var cached)) return cached;
+        using var document = JsonDocument.Parse(ReadVerified(Assets + "game/" + atlas + ".atlas"));
+        var texture = Frame(document, Assets + "game/" + atlas + ".png", name + ".png");
+        _sprites.Add(key, texture);
+        return texture;
+    }
     public Texture2D? Portrait(BattleProfile profile) => profile switch
     {
         BattleProfile.GuanyuStandard => Guanyu, BattleProfile.CaocaoStandard => Caocao, _ => null

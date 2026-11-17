@@ -10,6 +10,12 @@ public partial class BattleScreen
 {
     private void DriveAction(BattleAction action)
     {
+        if (action.Kind == BattleActionKind.Discard)
+        {
+            SelectMouseCard(action.CardId!);
+            foreach (var extra in _interaction.View.LegalActions.Where(a => a.Kind == BattleActionKind.Discard && a.CardId != action.CardId).Take(RequiredDiscards - 1)) SelectMouseCard(extra.CardId!);
+            _confirm.EmitSignal(BaseButton.SignalName.Pressed); return;
+        }
         if (action.Kind == BattleActionKind.SelectHandCard) { _choiceActions.Single(p => p.Value == action).Key.EmitSignal(BaseButton.SignalName.Pressed); return; }
         if (action.Kind == BattleActionKind.Pass) { _pass.EmitSignal(BaseButton.SignalName.Pressed); return; }
         if (action.Kind == BattleActionKind.EndPlay) { _end.EmitSignal(BaseButton.SignalName.Pressed); return; }
@@ -53,6 +59,21 @@ public partial class BattleScreen
 
     private async Task ChooseWithMouse(BattleAction action, bool cancel)
     {
+        if (action.Kind == BattleActionKind.Discard)
+        {
+            var before = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
+            var ids = new[] { action.CardId! }.Concat(_interaction.View.LegalActions.Where(a => a.Kind == BattleActionKind.Discard && a.CardId != action.CardId)
+                .Take(RequiredDiscards - 1).Select(a => a.CardId!)).ToArray();
+            foreach (var id in ids) await MouseClick(_handCards.Single(p => p.Value.InstanceId == id).Key, true);
+            if (_confirm.Disabled) throw new InvalidOperationException("选满弃牌后无法确认。");
+            if (cancel)
+            {
+                await MouseClick(_cancel);
+                if (_selectedDiscards.Count != 0 || BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot) != before) throw new InvalidOperationException("取消弃牌改变了状态。");
+                foreach (var id in ids) await MouseClick(_handCards.Single(p => p.Value.InstanceId == id).Key, true);
+            }
+            await MouseClick(_confirm); return;
+        }
         if (action.Kind == BattleActionKind.SelectHandCard) { await MouseClick(_choiceActions.Single(p => p.Value == action).Key); return; }
         if (action.Kind == BattleActionKind.Pass) { await MouseClick(_pass); return; }
         if (action.Kind == BattleActionKind.EndPlay) { await MouseClick(_end); return; }
@@ -188,8 +209,94 @@ public partial class BattleScreen
                 var card = _handCards.First(p => !p.Key.Disabled && _interaction.View.LegalActions.Any(a => a.CardId == p.Value.InstanceId && a.SkillId is null && NeedsTarget(a)));
                 card.Key.EmitSignal(BaseButton.SignalName.Pressed);
             }
+            else if (mode is "target" or "target-animation")
+            {
+                var action = _interaction.View.LegalActions.First(a => a.CardId is not null && a.SkillId is null && NeedsTarget(a));
+                SelectMouseCard(action.CardId!); SelectTarget(action.TargetId!);
+            }
+            else if (mode is "discard" or "discard-selected")
+            {
+                PrepareDiscardPreview();
+                if (mode == "discard-selected") AutoSelectDiscards();
+            }
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+            if (mode == "target-animation")
+            {
+                var folder = Path.GetDirectoryName(args[1])!;
+                for (var frame = 0; frame < 12; frame++)
+                {
+                    await ToSignal(GetTree().CreateTimer(.07), SceneTreeTimer.SignalName.Timeout);
+                    await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+                    var frameError = GetViewport().GetTexture().GetImage().SavePng(Path.Combine(folder, $"target-frame-{frame:D2}.png"));
+                    if (frameError != Error.Ok) throw new IOException("无法保存动画帧。");
+                }
+            }
             var error = GetViewport().GetTexture().GetImage().SavePng(args[1]); GD.Print("BATTLE_PREVIEW " + error); GetTree().Quit(error == Error.Ok ? 0 : 1);
+        }
+        catch (Exception ex) { GD.PushError(ex.ToString()); GetTree().Quit(1); }
+    }
+    private void PrepareDiscardPreview()
+    {
+        var state = _interaction.Snapshot;
+        var index = Array.FindIndex(state.Battle.Combatants.ToArray(), u => u.EntityId == state.Battle.PendingDecision!.ActorId);
+        var actor = state.Battle.Combatants[index];
+        _interaction.Restore(state with { Battle = state.Battle with { Combatants = state.Battle.Combatants.SetItem(index, actor with { Hp = 1 }) } });
+        ClearSelection(); ResetPresentation(); Refresh("弃牌场景");
+        SubmitImmediate(BattleActionKind.EndPlay);
+    }
+
+    private async Task RunDesktopSmoke()
+    {
+        _aiTimer.Stop();
+        try
+        {
+            var hash = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
+            foreach (var index in new[] { 1, 2, 0 })
+            {
+                await MouseClick(_sidebarTabs[index]);
+                if (_sidebarTab != index || _sidebarContent.GetChildCount() == 0) throw new InvalidOperationException("侧栏切换失败。");
+            }
+            await MouseClick(_sidebarToggle);
+            if (_sidebar.Visible || _table.AnchorRight < .95f) throw new InvalidOperationException("侧栏未收起。");
+            await MouseClick(_sidebarToggle);
+            if (!_sidebar.Visible || _table.AnchorRight != TableRight) throw new InvalidOperationException("侧栏未恢复。");
+            var action = _interaction.View.LegalActions.First(a => a.CardId is not null && a.SkillId is null && NeedsTarget(a));
+            await MouseClick(_handCards.Single(p => p.Value.InstanceId == action.CardId).Key, true);
+            await MouseClick(_sortHand);
+            if (_selectedCard != action.CardId || !_sortByKind) throw new InvalidOperationException("整理手牌丢失选择。");
+            await MouseClick(_seatButtons[action.TargetId!]);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (!_targetLine.HasLine || _targetLine.MouseFilter != MouseFilterEnum.Ignore) throw new InvalidOperationException("指向线未显示或阻挡输入。");
+            await MouseClick(_cancel);
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (_targetLine.HasLine) throw new InvalidOperationException("取消后指向线未清理。");
+            if (hash != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot)) throw new InvalidOperationException("查看或预选改变了战斗。");
+            PrepareDiscardPreview();
+            if (!ChoosingDiscards || RequiredDiscards != 5) throw new InvalidOperationException("弃牌预览应要求5张。");
+            hash = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
+            var first = _handCards.First().Value.InstanceId;
+            await MouseClick(_handCards.Single(p => p.Value.InstanceId == first).Key, true);
+            if (_selectedDiscards.Count != 1 || !_confirm.Disabled) throw new InvalidOperationException("不足5张仍可确认。");
+            await MouseClick(_handCards.Single(p => p.Value.InstanceId == first).Key, true);
+            if (_selectedDiscards.Count != 0) throw new InvalidOperationException("未能取消单张选择。");
+            await MouseClick(_autoSelect);
+            if (_selectedDiscards.Count != 5 || _confirm.Disabled) throw new InvalidOperationException("一键选择数量错误。");
+            var unselected = _handCards.First(p => !_selectedDiscards.Contains(p.Value.InstanceId)).Value.InstanceId;
+            await MouseClick(_handCards.Single(p => p.Value.InstanceId == unselected).Key, true);
+            if (_selectedDiscards.Count != 5 || _selectedDiscards.Contains(unselected)) throw new InvalidOperationException("允许超选弃牌。");
+            await MouseClick(_cancel);
+            if (_selectedDiscards.Count != 0 || hash != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot)) throw new InvalidOperationException("取消或预选消耗了牌。");
+            await MouseClick(_autoSelect);
+            var expected = _selectedDiscards.ToArray();
+            await MouseClick(_confirm);
+            if (!expected.All(id => _interaction.Snapshot.Battle.DiscardPile.Any(c => c.InstanceId == id))
+                || ChoosingDiscards || _selectedDiscards.Count != 0) throw new InvalidOperationException("批量弃牌未正确提交。");
+            _targetLine.Play(new Vector2(20, 200), new Vector2(300, 20));
+            await ToSignal(GetTree().CreateTimer(.12), SceneTreeTimer.SignalName.Timeout);
+            if (!_targetLine.HasLine) throw new InvalidOperationException("已提交指向动画过早消失。");
+            await ToSignal(GetTree().CreateTimer(.8), SceneTreeTimer.SignalName.Timeout);
+            if (_targetLine.HasLine) throw new InvalidOperationException("已提交指向动画未淡出。");
+            GD.Print("BATTLE_DESKTOP_SMOKE_OK discard=5 sidebar=3 targeting=animated sort=preserved"); GetTree().Quit();
         }
         catch (Exception ex) { GD.PushError(ex.ToString()); GetTree().Quit(1); }
     }

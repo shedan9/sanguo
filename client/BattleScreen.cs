@@ -60,6 +60,7 @@ public partial class BattleScreen : Control
             if (args.Contains("--battle-layout-smoke")) { _ = RunLayoutSmoke(); return; }
             if (args.Contains("--battle-artwork-smoke")) { _ = RunArtworkSmoke(); return; }
             if (args.Contains("--battle-interaction-smoke")) { _ = RunInteractionSmoke(); return; }
+            if (args.Contains("--battle-desktop-smoke")) { _ = RunDesktopSmoke(); return; }
             if (args.Contains("--battle-preview")) { _ = CapturePreview(args); return; }
             _aiTimer.Start();
         }
@@ -131,6 +132,8 @@ public partial class BattleScreen : Control
     private void ClearSelection()
     {
         _interaction.Cancel(); _selectedCard = null; _selectedTarget = null; _costCard = null; _selectedSkill = null;
+        _selectedDiscards.Clear(); _discardVersion = -1;
+        _hoverTarget = null;
     }
 
     private void UpdateLog(BattleView view)
@@ -253,7 +256,7 @@ public partial class BattleScreen : Control
 
     private Button CreateCardButton(BattleCard card, bool legal, Action select)
     {
-        var selected = card.InstanceId == _selectedCard || card.InstanceId == _costCard;
+        var selected = card.InstanceId == _selectedCard || card.InstanceId == _costCard || _selectedDiscards.Contains(card.InstanceId);
         var button = Button("", select);
         button.CustomMinimumSize = new Vector2(82, 112);
         button.Disabled = !legal;
@@ -264,20 +267,20 @@ public partial class BattleScreen : Control
         button.AddThemeStyleboxOverride("disabled", border);
         var content = new Control { MouseFilter = MouseFilterEnum.Ignore, Modulate = legal ? Colors.White : new Color(.48f, .48f, .48f) };
         content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        content.OffsetLeft = 5; content.OffsetRight = -5; content.OffsetTop = 6; content.OffsetBottom = -6;
+        content.OffsetLeft = 2; content.OffsetRight = -2; content.OffsetTop = 2; content.OffsetBottom = -2;
         button.AddChild(content);
         content.AddChild(Picture(_art.CardFace(card.Kind)));
-        var captionBackground = new ColorRect { Color = Paper, MouseFilter = MouseFilterEnum.Ignore };
+        var captionBackground = new ColorRect { Color = new Color("211B16D9"), MouseFilter = MouseFilterEnum.Ignore };
         captionBackground.AnchorTop = 1; captionBackground.AnchorBottom = 1; captionBackground.AnchorRight = 1;
-        captionBackground.OffsetTop = -23;
+        captionBackground.OffsetTop = -18;
         content.AddChild(captionBackground);
-        var caption = Text(CardName(card.Kind) + (selected ? " ✓" : ""), 12, Ink);
+        var caption = Text(CardName(card.Kind) + (selected ? " ✓" : ""), 11, Paper);
         caption.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); caption.HorizontalAlignment = HorizontalAlignment.Center;
         caption.MouseFilter = MouseFilterEnum.Ignore; captionBackground.AddChild(caption);
-        var rank = Text((card.Suit switch { "spade" => "♠", "heart" => "♥", "club" => "♣", "diamond" => "♦", _ => "?" })
-            + "\n" + (card.Rank switch { 1 => "A", 11 => "J", 12 => "Q", 13 => "K", _ => card.Rank.ToString() }), 16,
+        var rank = Text((card.Rank switch { 1 => "A", 11 => "J", 12 => "Q", 13 => "K", _ => card.Rank.ToString() })
+            + "\n" + (card.Suit switch { "spade" => "♠", "heart" => "♥", "club" => "♣", "diamond" => "♦", _ => "?" }), 14,
             card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
-        rank.Position = new Vector2(3, 2); rank.Size = new Vector2(24, 44);
+        rank.Position = new Vector2(1, 1); rank.Size = new Vector2(20, 37);
         rank.HorizontalAlignment = HorizontalAlignment.Center; rank.MouseFilter = MouseFilterEnum.Ignore;
         var rankBackground = new ColorRect { Position = rank.Position, Size = rank.Size, Color = Paper, MouseFilter = MouseFilterEnum.Ignore };
         content.AddChild(rankBackground); content.AddChild(rank);
@@ -298,7 +301,7 @@ public partial class BattleScreen : Control
         void UpdateHighlight()
         {
             var highlight = hovering || selected;
-            content.OffsetTop = highlight ? 2 : 6; content.OffsetBottom = highlight ? -10 : -6;
+            content.OffsetTop = highlight ? 0 : 2; content.OffsetBottom = highlight ? -4 : -2;
             _cardDetail.Text = highlight ? details : "悬停查看牌面；点击手牌，再点击发光目标。";
         }
         button.MouseEntered += () => { hovering = true; UpdateHighlight(); };
