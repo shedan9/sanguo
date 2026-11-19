@@ -2,22 +2,22 @@ using Godot;
 
 namespace Sanguo.Client;
 
-/// <summary>鼠标穿透的金色指向动画；预选持续显示，出牌反馈短暂保留后淡出。</summary>
+/// <summary>鼠标穿透的金色指向动画，定向牌公开后绘制并淡出。</summary>
 public partial class BattleTargetLine : Control
 {
-    public Func<(Vector2 From, Vector2 To)?>? Preview { get; set; }
     public bool HasLine { get; private set; }
     public bool ReduceMotion { get; set; }
+    public double ChoiceRevealDelay => ReduceMotion || _shotRemaining <= 0 ? 0 : Math.Max(0, _delay + .26 - _elapsed);
     private Vector2 _from, _to;
     private Rect2 _targetBounds;
-    private double _elapsed, _shotRemaining;
+    private double _elapsed, _shotRemaining, _delay;
     private float _opacity;
 
     public override void _Ready() => MouseFilter = MouseFilterEnum.Ignore;
 
-    public void Play(Vector2 from, Rect2 targetBounds)
+    public void Play(Vector2 from, Rect2 targetBounds, double delay = 0)
     {
-        _from = from; _to = targetBounds.GetCenter(); _targetBounds = targetBounds; _shotRemaining = .8; _opacity = 1; HasLine = true;
+        _from = from; _to = targetBounds.GetCenter(); _targetBounds = targetBounds; _shotRemaining = .8; _delay = delay; _elapsed = 0; _opacity = 1; HasLine = delay <= 0;
         QueueRedraw();
     }
 
@@ -26,19 +26,17 @@ public partial class BattleTargetLine : Control
     public override void _Process(double delta)
     {
         var wasVisible = HasLine;
+        if (_shotRemaining <= 0) return;
+        if (_delay > 0)
+        {
+            _delay -= delta;
+            if (_delay > 0) return;
+            delta = -_delay;
+        }
         if (!ReduceMotion) _elapsed += delta;
-        var preview = Preview?.Invoke();
-        if (preview is { } points)
-        {
-            _shotRemaining = 0;
-            _from = points.From; _to = points.To; _opacity = .95f; HasLine = true;
-        }
-        else
-        {
-            _shotRemaining = Math.Max(0, _shotRemaining - delta);
-            _opacity = (float)Math.Min(1, _shotRemaining / .35);
-            HasLine = _shotRemaining > 0;
-        }
+        _shotRemaining = Math.Max(0, _shotRemaining - delta);
+        _opacity = (float)Math.Min(1, _shotRemaining / .35);
+        HasLine = _shotRemaining > 0;
         if (HasLine || wasVisible) QueueRedraw();
     }
 
@@ -47,6 +45,7 @@ public partial class BattleTargetLine : Control
         if (!HasLine || _from.DistanceSquaredTo(_to) < 4) return;
         var from = GetGlobalTransform().AffineInverse() * _from;
         var to = GetGlobalTransform().AffineInverse() * _to;
+        if (!ReduceMotion) to = from.Lerp(to, Mathf.Clamp((float)_elapsed / .12f, 0, 1));
         var direction = (to - from).Normalized();
         var normal = direction.Orthogonal();
         DrawLine(from, to, new Color(1f, .61f, .15f, .07f * _opacity), 14, true);

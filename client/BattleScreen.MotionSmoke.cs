@@ -68,6 +68,12 @@ public partial class BattleScreen
         if (!_dragging || _dragFace is null || _dragFace.MouseFilter != MouseFilterEnum.Ignore)
             throw new InvalidOperationException("真实鼠标拖动未生成可穿透浮牌。");
         MovePointer(destination); await MotionFrame();
+        if (_handScroll.GetGlobalRect().HasPoint(destination) && _sourceSlot != _insertSlot)
+        {
+            var neighbour = _dragRow[_insertSlot];
+            if (Mathf.Abs(neighbour.Position.X - _insertSlot * _slotStep) < 1)
+                throw new InvalidOperationException("手牌拖过相邻牌位后没有让位。");
+        }
         GetViewport().PushInput(new InputEventMouseButton { Position = destination, GlobalPosition = destination, ButtonIndex = MouseButton.Left, Pressed = false }, true);
         await MotionFrame();
         if (_dragging || _pointerCard is not null || _dropZone.Visible) throw new InvalidOperationException("松手后拖牌状态未清理。");
@@ -122,6 +128,12 @@ public partial class BattleScreen
                 || !_interaction.Snapshot.Receipts.Any(r => r.Command.Action == action))
                 throw new InvalidOperationException($"拖向合法目标未实际出牌或没有飞牌：version={version}->{_interaction.View.StateVersion} flights={flights}->{_flightCount} action={action}。");
 
+            if (_targetLine.HasLine) throw new InvalidOperationException("飞牌落桌前出现了金线。");
+            await ToSignal(GetTree().CreateTimer(CardFlightDuration + .10), SceneTreeTimer.SignalName.Timeout);
+            if (!_targetLine.HasLine) throw new InvalidOperationException("定向牌落桌后没有指向目标。");
+            await ToSignal(GetTree().CreateTimer(.85), SceneTreeTimer.SignalName.Timeout);
+            if (_targetLine.HasLine) throw new InvalidOperationException("已结束的定向出牌仍显示金线。");
+
             // Target-free and response cards share the drop zone and the same legal action contract.
             FreshMotionBattle();
             for (var step = 0; step < 500 && !_interaction.View.LegalActions.Any(a => a.Kind == BattleActionKind.ExNihilo && a.SkillId is null); step++)
@@ -151,7 +163,13 @@ public partial class BattleScreen
                 }
                 else if (_interaction.WaitingForAi) AdvanceAi();
                 else DriveAction(next!);
-                gotDamage |= _interaction.ReadLog().Any(e => e.Code == "damage.dealt");
+                if (!gotDamage && _interaction.ReadLog().LastOrDefault(e => e.Code == "damage.dealt") is { } damage)
+                {
+                    var victim = _interaction.View.Combatants.Single(u => u.EntityId == damage.TargetId);
+                    var hpSlot = _seatButtons[victim.EntityId].GetNode<Control>($"Life{Math.Max(0, victim.Hp)}");
+                    if (hpSlot.GetChildCount() == 0) throw new InvalidOperationException("伤害结算没有播放失去体力格的动画。");
+                    gotDamage = true;
+                }
                 if (draggedResponse && gotDamage) break;
                 await MotionFrame();
             }

@@ -26,17 +26,18 @@ public partial class BattleScreen
                 if (_inspectionPanel.Visible) throw new InvalidOperationException("快速经过手牌时过早弹出详情。");
                 await ToSignal(GetTree().CreateTimer(HoverDetailDelay + .06), SceneTreeTimer.SignalName.Timeout);
                 await KeyboardFrame();
-                CheckCardInspection(earlyCard.Key, earlyCard.Value);
+                if (_inspectionPanel.Visible || _cardDetail.Text != MouseHint)
+                    throw new InvalidOperationException("停留在手牌上时自动展开了详情。");
                 earlyCard.Key.EmitSignal(Control.SignalName.MouseExited);
                 var hash = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
                 foreach (var (button, card) in _handCards)
                 {
-                    await MoveInspectionPointer(button.GetGlobalRect().GetCenter());
+                    await InspectByRightClick(button);
                     CheckCardInspection(button, card);
                     inspected++;
                 }
                 var disabled = _handCards.First(p => p.Key.Disabled);
-                await MoveInspectionPointer(disabled.Key.GetGlobalRect().GetCenter());
+                await InspectByRightClick(disabled.Key);
                 if (!_cardDetail.Text.Contains("当前无合法动作", StringComparison.Ordinal)) throw new InvalidOperationException("灰置牌未显示不可用说明。");
                 await TapKeyboard(Key.Escape);
                 if (_inspectionPanel.Visible) throw new InvalidOperationException("Esc未收起悬停预览。");
@@ -46,8 +47,13 @@ public partial class BattleScreen
                 var enabled = _handCards.First(p => !p.Key.Disabled);
                 await NavigateWithKeyboard(_inspectButton);
                 await NavigateWithKeyboard(enabled.Key);
+                if (_inspectionPanel.Visible) throw new InvalidOperationException("聚焦手牌自动展开了详情。");
+                await InspectByRightClick(enabled.Key);
+                await MoveInspectionPointer(new Vector2(4, 4));
                 CheckCardInspection(enabled.Key, enabled.Value);
-                await TapKeyboard(Key.Escape);
+                await MouseClick(enabled.Key, true);
+                if (_selectedCard is not null || _pointerCard is not null)
+                    throw new InvalidOperationException("关闭详情的左键同时选择了手牌。");
                 if (_inspectionPanel.Visible || !enabled.Key.HasFocus()) throw new InvalidOperationException("收起预览改变了手牌焦点。");
                 await NavigateWithKeyboard(_inspectButton); await TapKeyboard(Key.Enter);
                 if (!_handDialog.Visible || !_handChoice.HasFocus() || _inspectionPanel.Visible
@@ -72,6 +78,10 @@ public partial class BattleScreen
                 SelectMouseCard(action.CardId!);
                 if (NeedsTarget(action)) SelectTarget(action.TargetId!);
                 await KeyboardFrame();
+                await InspectByRightClick(_handCards.First(p => p.Key.Disabled).Key);
+                await MouseClick(_confirm);
+                if (_inspectionPanel.Visible || _interaction.Selection != action)
+                    throw new InvalidOperationException("查看或关闭详情改变了待确认的操作。");
                 await NavigateWithKeyboard(_inspectButton); await TapKeyboard(Key.Space); await TapKeyboard(Key.Escape);
                 if (_interaction.Selection != action || hash != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot))
                     throw new InvalidOperationException("查看卡面提交或取消了预览操作。");
@@ -100,13 +110,14 @@ public partial class BattleScreen
                     var sample = new BattleCard("inspection.display." + kind, kind, "diamond", 13);
                     var control = CreateCardButton(sample, true, () => { }); _hand.AddChild(control);
                     control.Position = new Vector2(sampleIndex++ * 88, 0); control.Size = new Vector2(82, 112);
-                    samples.Add((control, sample));
+                    samples.Add((control, sample)); _handCards.Add(control, sample);
                 }
                 _hand.CustomMinimumSize = new Vector2(sampleIndex * 88, 122);
                 await KeyboardFrame(); await KeyboardFrame();
                 foreach (var (control, sample) in samples)
                 {
                     control.GrabFocus(); await KeyboardFrame(); await KeyboardFrame();
+                    await InspectByRightClick(control);
                     CheckCardInspection(control, sample); inspected++;
                 }
                 if (BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot) != BasicBattleSnapshotCodec.StateHash(DevelopmentBattleScenario.Create().State))
@@ -117,10 +128,12 @@ public partial class BattleScreen
                 for (var i = 0; i < 24; i++)
                 {
                     var extra = CreateCardButton(sampleCard, true, () => { }); _hand.AddChild(extra);
+                    _handCards.Add(extra, sampleCard);
                     extra.Position = new Vector2(sampleIndex++ * 88, 0); extra.Size = new Vector2(82, 112);
                 }
                 _hand.CustomMinimumSize = new Vector2(sampleIndex * 88, 122);
                 _hand.GetChild<Button>(-1).GrabFocus(); await KeyboardFrame(); await KeyboardFrame();
+                await InspectByRightClick(_hand.GetChild<Button>(-1));
                 handScroll.ScrollHorizontal = 0; await KeyboardFrame();
                 if (_inspectionPanel.Visible) throw new InvalidOperationException("滚出视口的卡牌残留预览。");
                 Refresh("刷新清理回归");
@@ -130,6 +143,17 @@ public partial class BattleScreen
             GetTree().Quit();
         }
         catch (Exception ex) { GD.PushError(ex.ToString()); GetTree().Quit(1); }
+    }
+
+    private async Task InspectByRightClick(Control control)
+    {
+        var rect = control.GetGlobalRect().Intersection(_handScroll.GetGlobalRect());
+        var point = rect.Position + new Vector2(Math.Min(6, rect.Size.X / 2), rect.Size.Y / 2);
+        MovePointer(point);
+        foreach (var pressed in new[] { true, false })
+            GetViewport().PushInput(new InputEventMouseButton { Position = point, GlobalPosition = point,
+                ButtonIndex = MouseButton.Right, Pressed = pressed }, true);
+        await KeyboardFrame();
     }
 
     private async Task MoveInspectionPointer(Vector2 position)

@@ -85,6 +85,7 @@ public partial class BattleScreen
         {
             var button = action.Kind == BattleActionKind.Pass ? _pass : action.Kind == BattleActionKind.EndPlay ? _end
                 : _choiceActions.Single(p => p.Value == action).Key;
+            if (action.Kind == BattleActionKind.SelectHandCard) await WaitForHandChoice(button);
             await NavigateWithKeyboard(button); await TapKeyboard(Key.Enter); return;
         }
         if (action.Kind != BattleActionKind.InvokeSkill) await PreviewWithKeyboard(action);

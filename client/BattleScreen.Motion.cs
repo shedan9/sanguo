@@ -11,14 +11,20 @@ public partial class BattleScreen
     private Label _dropHint = null!;
     private Panel? _hoverFace, _dragFace;
     private Button? _hoverButton, _pointerButton;
-    private Tween? _hoverTween;
+    private Tween? _hoverTween, _handReflow;
     private BattleCard? _pointerCard;
     private Vector2 _pointerStart, _pointerOffset;
-    private Vector2 _dragPoint;
+    private Vector2 _dragPoint, _grabLift;
+    private Button[] _dragRow = [];
+    private int _sourceSlot, _insertSlot;
+    private float _slotStep;
+    private const double CardFlightDuration = .34;
     private bool _motionConnected;
     private bool _dragging;
     private string? _dragTarget, _handOrderOwner;
     private long _pointerVersion;
+    private BattleAction[] _dragActions = [];
+    private bool _dragDiscards;
     private ulong _motionUntil;
     private readonly List<string> _handOrder = [];
     private readonly Dictionary<string, List<string>> _ordersByOwner = new(StringComparer.Ordinal);
@@ -78,20 +84,24 @@ public partial class BattleScreen
     {
         button.MouseDefaultCursorShape = CursorShape.Drag;
         button.MouseEntered += () => LiftHandCard(button, card);
-        button.MouseExited += () => LowerHandCard(button);
+        button.MouseExited += () => { if (_pointerButton != button) LowerHandCard(button); };
         button.GuiInput += input =>
         {
             if (input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } mouse
                 || InspectionOpen || _choiceOverlay.Visible) return;
-            LowerHandCard(_hoverButton);
             _pointerButton = button; _pointerCard = card; _pointerStart = button.GetGlobalTransform() * mouse.Position;
-            _pointerOffset = _pointerStart - button.GlobalPosition; _pointerVersion = _interaction.View.StateVersion;
+            _pointerOffset = _pointerStart - button.GlobalPosition;
+            var view = _interaction.View;
+            _pointerVersion = view.StateVersion;
+            _dragActions = view.LegalActions.Where(a => a.CardId == card.InstanceId
+                && a.SkillId == _selectedSkill && (a.CostCardId is null || a.CostCardId == _costCard)).ToArray();
+            _dragDiscards = view.LegalActions.Any(a => a.Kind == BattleActionKind.Discard);
         };
     }
 
     private void LiftHandCard(Button button, BattleCard card)
     {
-        if (_reduceMotion || _dragging || _pointerCard is not null || InspectionOpen || _choiceOverlay.Visible || _hoverButton == button) return;
+        if (_reduceMotion || _pinnedHandInspection is not null || _dragging || _pointerCard is not null || InspectionOpen || _choiceOverlay.Visible || _hoverButton == button) return;
         LowerHandCard(_hoverButton);
         _hoverButton = button;
         _hoverFace = MotionFace(card, button.Size);
@@ -124,9 +134,13 @@ public partial class BattleScreen
 
     private void ResetHandMotion()
     {
+        _handReflow?.Kill();
+        _handReflow = null;
         LowerHandCard(_hoverButton);
         if (IsInstanceValid(_pointerButton)) _pointerButton!.Modulate = Colors.White;
         if (IsInstanceValid(_dragFace)) _dragFace!.QueueFree();
+        _dragRow = [];
+        _dragActions = [];
         _pointerButton = null; _pointerCard = null; _dragFace = null; _dragging = false; _dragTarget = null;
         if (IsInstanceValid(_dropZone)) _dropZone.Visible = false;
     }
@@ -146,45 +160,62 @@ public partial class BattleScreen
         {
             ResetHandMotion(); Refresh("已收回手牌。"); GetViewport().SetInputAsHandled(); return;
         }
-        if (InspectionOpen || _choiceOverlay.Visible || _pointerVersion != _interaction.View.StateVersion)
+        if (InspectionOpen || _choiceOverlay.Visible || _pointerVersion != _interaction.Snapshot.Battle.StateVersion)
         { ResetHandMotion(); return; }
         if (input is InputEventMouseMotion motion)
         {
-            if (!_dragging && motion.Position.DistanceTo(_pointerStart) >= 9)
+            if (!_dragging && motion.Position.DistanceTo(_pointerStart) >= 6)
             {
                 _dragging = true;
-                _dragFace = MotionFace(_pointerCard, _pointerButton!.Size);
-                _dragFace.Scale = Vector2.One * 1.08f;
-                _pointerButton.Modulate = new Color(1, 1, 1, .18f);
+                _dragPoint = _pointerStart;
+                _grabLift = _hoverButton == _pointerButton && _hoverFace is not null
+                    ? _hoverFace.GlobalPosition - _pointerButton!.GlobalPosition : Vector2.Zero;
+                _hoverTween?.Kill();
+                _dragFace = _hoverFace ?? MotionFace(_pointerCard, _pointerButton!.Size);
+                _hoverFace = null;
+                _hoverButton = null;
+                _dragFace.Modulate = Colors.White;
+                _dragRow = _handCards.Keys.OrderBy(b => b.GetIndex()).ToArray();
+                _sourceSlot = _insertSlot = Array.IndexOf(_dragRow, _pointerButton);
+                _handReflow?.Kill();
+                if (!_reduceMotion)
+                    _dragFace.CreateTween().TweenProperty(_dragFace, "scale", Vector2.One * 1.08f, .11)
+                        .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+                _pointerButton!.Modulate = new Color(1, 1, 1, .12f);
             }
             if (!_dragging) return;
-            _dragFace!.GlobalPosition = motion.Position - _pointerOffset;
+            if (!_reduceMotion)
+                _dragFace!.Rotation = Mathf.Clamp(_dragFace.Rotation + (motion.Position.X - _dragPoint.X) * .001f, -.10f, .10f);
             _dragPoint = motion.Position;
-            _dragFace.Rotation = Mathf.Clamp((motion.Position.X - _pointerStart.X) / 1800, -.12f, .12f);
+            _dragFace!.GlobalPosition = _dragPoint - _pointerOffset + _grabLift;
             UpdateDragTarget(motion.Position);
             GetViewport().SetInputAsHandled();
         }
         else if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } mouse)
         {
             if (_dragging) { FinishCardDrag(mouse.Position); GetViewport().SetInputAsHandled(); }
-            else { _pointerButton = null; _pointerCard = null; }
+            else
+            {
+                if (!_pointerButton!.GetGlobalRect().HasPoint(mouse.Position)) LowerHandCard(_hoverButton);
+                _pointerButton = null; _pointerCard = null;
+            }
         }
     }
 
-    private BattleAction[] DragActions() => _interaction.View.LegalActions.Where(a => a.CardId == _pointerCard?.InstanceId
-        && a.SkillId == _selectedSkill && (a.CostCardId is null || a.CostCardId == _costCard)).ToArray();
-
     private void UpdateDragTarget(Vector2 point)
     {
-        var actions = DragActions();
+        var actions = _dragActions;
         _dragTarget = _seatButtons.FirstOrDefault(p => p.Value.GetGlobalRect().HasPoint(point)
             && actions.Any(a => NeedsTarget(a) && a.TargetId == p.Key)).Key;
-        _dropZone.Visible = !_handScroll.GetGlobalRect().HasPoint(point);
+        var insideHand = _handScroll.GetGlobalRect().HasPoint(point);
+        _insertSlot = insideHand ? Math.Clamp(Mathf.RoundToInt((point.X - _hand.GlobalPosition.X - _pointerOffset.X)
+            / _slotStep), 0, _dragRow.Length - 1) : _sourceSlot;
+        _dropZone.Visible = !insideHand;
         var direct = actions.Any(a => !NeedsTarget(a) && a.Kind != BattleActionKind.Discard);
         if (actions.Any(a => NeedsTarget(a))) Place(_dropZone, .31f, .41f, .65f, .49f);
         else Place(_dropZone, .27f, .43f, .67f, .62f);
         var valid = _dragTarget is not null || direct && _dropZone.GetGlobalRect().HasPoint(point);
-        _dropHint.Text = ChoosingDiscards ? "弃牌请点击多选后确定" : _dragTarget is not null ? "松手 · 对目标出牌"
+        _dropHint.Text = _dragDiscards ? "弃牌请点击多选后确定" : _dragTarget is not null ? "松手 · 对目标出牌"
             : actions.Any(a => NeedsTarget(a)) ? "拖向角色框 · 松手出牌" : direct ? "拖至此处 · 松手出牌" : "当前无法打出 · 松手收回";
         _dropHint.Modulate = valid ? new Color("FFF0B8") : Paper;
         if (_dragFace?.GetThemeStylebox("panel") is StyleBoxFlat style)
@@ -205,35 +236,44 @@ public partial class BattleScreen
     {
         UpdateDragTarget(point);
         var card = _pointerCard!;
-        var source = _pointerButton!.GetGlobalRect();
         var face = _dragFace!;
         var target = _dragTarget;
-        var action = DragActions().SingleOrDefault(a => NeedsTarget(a) ? target is not null && a.TargetId == target
+        var action = _dragActions.SingleOrDefault(a => NeedsTarget(a) ? target is not null && a.TargetId == target
             : a.Kind != BattleActionKind.Discard && _dropZone.GetGlobalRect().HasPoint(point));
         // Reordering is a view preference. The rule hand, random stream and pending selection stay unchanged.
         if (_handScroll.GetGlobalRect().HasPoint(point))
         {
-            var ordered = _handCards.OrderBy(p => p.Key.Position.X).Select(p => p.Value.InstanceId).ToList();
-            var index = _handCards.Count(p => p.Value.InstanceId != card.InstanceId && point.X > p.Key.GetGlobalRect().GetCenter().X);
-            ordered.Remove(card.InstanceId); ordered.Insert(Math.Min(index, ordered.Count), card.InstanceId);
+            var ordered = _dragRow.Select(b => _handCards[b].InstanceId).ToList();
+            ordered.RemoveAt(_sourceSlot);
+            ordered.Insert(_insertSlot, card.InstanceId);
             _handOrder.Clear(); _handOrder.AddRange(ordered); _sortByKind = false; _sortHand.Text = "整理手牌";
-            ResetHandMotion(); Refresh("已调整手牌顺序。"); return;
+            LandInHand("已调整手牌顺序。");
+            return;
         }
-        if (action is not null && !ChoosingDiscards)
+        if (action is not null && !_dragDiscards && _interaction.Select(action))
         {
-            _interaction.Select(action);
             Confirm(); // Refresh captures the dragged card's current position before clearing its ghost.
             return;
         }
-        // Invalid drops consume no command. Return the floating card to the original hand slot.
-        _dragFace = null;
-        ResetHandMotion();
-        var tween = CreateTween().BindNode(face).SetParallel().SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(face, "global_position", source.Position, .22);
-        tween.TweenProperty(face, "scale", Vector2.One, .22);
-        tween.TweenProperty(face, "rotation", 0f, .22);
-        tween.Chain().TweenCallback(Callable.From(face.QueueFree));
-        Refresh(ChoosingDiscards ? "弃牌请点击多选后确定。" : "此处不能出牌，已收回手牌。");
+        LandInHand(_dragDiscards ? "弃牌请点击多选后确定。" : "此处不能出牌，已收回手牌。");
+
+        void LandInHand(string message)
+        {
+            _dragFace = null;
+            Refresh(message);
+            var slot = _handCards.Single(p => p.Value.InstanceId == card.InstanceId).Key;
+            if (_reduceMotion) { face.QueueFree(); return; }
+            slot.Modulate = Colors.Transparent;
+            var tween = face.CreateTween().SetParallel().SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+            tween.TweenProperty(face, "global_position", slot.GlobalPosition, .18);
+            tween.TweenProperty(face, "scale", Vector2.One, .18);
+            tween.TweenProperty(face, "rotation", 0f, .18);
+            tween.Chain().TweenCallback(Callable.From(() =>
+            {
+                if (IsInstanceValid(slot)) slot.Modulate = Colors.White;
+                face.QueueFree();
+            }));
+        }
     }
 
     private Vector2 SeatCenter(string id) => _seatButtons.TryGetValue(id, out var seat)
@@ -246,24 +286,69 @@ public partial class BattleScreen
         _motionUntil = Math.Max(_motionUntil, Time.GetTicksMsec() + 820 + (ulong)Math.Max(0, index) * 45);
         var height = GetViewportRect().Size.Y * .16f;
         var face = MotionFace(card, new Vector2(height * .715f, height));
+        var destination = card is null ? null : _publicFaces.GetValueOrDefault(card.InstanceId);
+        var sourceSize = card is not null && _handOrigins.TryGetValue(card.InstanceId, out var origin)
+            ? origin.Size : face.Size * (drawing ? .58f : .85f);
+        var lift = drawing ? 18f : Math.Min(52f, from.DistanceTo(to) * .16f);
         face.GlobalPosition = from - face.Size / 2;
-        face.Scale = Vector2.One * (drawing ? .55f : .95f); face.Rotation = -.13f;
-        var tween = CreateTween().BindNode(face);
-        tween.TweenInterval(index * .045);
-        tween.SetParallel();
-        tween.TweenProperty(face, "global_position", to - face.Size / 2, .32).SetTrans(Tween.TransitionType.Quart).SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(face, "scale", Vector2.One * (drawing ? .45f : 1.12f), .32);
-        tween.TweenProperty(face, "rotation", .025f * (index % 3 - 1), .32);
-        tween.Chain().TweenInterval(drawing ? .02 : .18);
-        tween.Chain().TweenProperty(face, "modulate:a", 0f, .20);
-        tween.Parallel().TweenProperty(face, "scale", Vector2.One * (drawing ? .25f : .92f), .20);
-        tween.Chain().TweenCallback(Callable.From(face.QueueFree));
+        face.Scale = sourceSize / face.Size;
+        if (destination is not null) destination.Modulate = Colors.Transparent;
+        var tween = face.CreateTween();
+        if (index > 0) tween.TweenInterval(index * .045);
+        tween.TweenMethod(Callable.From<float>(t =>
+        {
+            var landed = IsInstanceValid(destination) && destination!.IsInsideTree();
+            var end = landed ? destination!.GetGlobalRect().GetCenter() : to;
+            var endScale = landed ? destination!.Size / face.Size : Vector2.One * (drawing ? .43f : 1f);
+            var arc = Mathf.Sin(Mathf.Pi * t);
+            face.GlobalPosition = from.Lerp(end, t) - face.Size / 2 + Vector2.Up * lift * arc;
+            face.Scale = (sourceSize / face.Size).Lerp(endScale, t) * (1f + .13f * arc);
+            face.Rotation = arc * .08f * Math.Sign(end.X - from.X);
+        }), 0f, 1f, CardFlightDuration).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+        tween.TweenCallback(Callable.From(() =>
+        {
+            if (IsInstanceValid(destination)) destination!.Modulate = Colors.White;
+        }));
+        if (destination is null && !drawing) tween.TweenInterval(.16);
+        tween.TweenProperty(face, "modulate:a", 0f, .16);
+        tween.TweenCallback(Callable.From(face.QueueFree));
+    }
+
+    private void AnimateHealthLoss(CombatantView unit, int amount, double delay)
+    {
+        if (_reduceMotion || !_seatButtons.TryGetValue(unit.EntityId, out var seat)) return;
+        var portrait = seat.GetNode<TextureRect>("Portrait");
+        var rest = portrait.Position;
+        var recoil = portrait.CreateTween();
+        recoil.TweenInterval(delay);
+        recoil.TweenProperty(portrait, "modulate", new Color("FF8677"), .05);
+        recoil.Parallel().TweenProperty(portrait, "position:x", rest.X - 5, .05);
+        recoil.TweenProperty(portrait, "position:x", rest.X + 3, .06);
+        recoil.TweenProperty(portrait, "position:x", rest.X, .11);
+        recoil.Parallel().TweenProperty(portrait, "modulate", Colors.White, .16);
+
+        var previousHp = unit.Hp + amount;
+        for (var i = Math.Max(0, unit.Hp); i < Math.Min(unit.MaxHp, previousHp); i++)
+        {
+            var slot = seat.GetNode<TextureRect>($"Life{i}");
+            var pip = Picture(_art.Sprite("seat", LifeSprite(i, previousHp)), TextureRect.StretchModeEnum.KeepAspectCentered);
+            slot.AddChild(pip);
+            pip.PivotOffset = slot.Size / 2;
+            var fade = pip.CreateTween();
+            fade.TweenInterval(delay + (previousHp - i - 1) * .07);
+            fade.TweenProperty(pip, "scale", Vector2.One * 1.45f, .12);
+            fade.TweenProperty(pip, "modulate:a", 0f, .22);
+            fade.Parallel().TweenProperty(pip, "scale", Vector2.One * .65f, .22);
+            fade.TweenCallback(Callable.From(pip.QueueFree));
+        }
     }
 
     private void FloatFeedback(string text, Vector2 point, Color color, bool impact = false, bool slash = false, double delay = .22)
     {
         _motionUntil = Math.Max(_motionUntil, Time.GetTicksMsec() + (ulong)((delay + .95) * 1000));
         var label = DesktopLabel(text, impact ? 36 : 23, color);
+        label.AddThemeConstantOverride("outline_size", impact ? 5 : 3);
+        label.AddThemeColorOverride("font_outline_color", new Color("281913"));
         label.HorizontalAlignment = HorizontalAlignment.Center; label.Size = new Vector2(300, 65);
         label.GlobalPosition = point - new Vector2(150, 30); label.Modulate = new Color(1, 1, 1, 0);
         _motionLayer.AddChild(label); label.GlobalPosition = point - new Vector2(150, 30);
@@ -275,9 +360,8 @@ public partial class BattleScreen
             _motionLayer.AddChild(effect); _impactCount++;
         }));
         tween.TweenProperty(label, "modulate:a", 1f, .10);
-        tween.SetParallel();
         tween.TweenProperty(label, "position:y", label.Position.Y - (_reduceMotion ? 0 : 44), .75).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(label, "modulate:a", 0f, .3).SetDelay(.52);
+        tween.Parallel().TweenProperty(label, "modulate:a", 0f, .3).SetDelay(.45);
         tween.Chain().TweenCallback(Callable.From(label.QueueFree));
     }
 
@@ -300,7 +384,17 @@ public partial class BattleScreen
             switch (e.Code)
             {
                 case "damage.dealt":
-                    FloatFeedback($"−{e.Amount}", SeatCenter(e.TargetId!), new Color("FF6A4F"), true, true); break;
+                    var victim = view.Combatants.Single(u => u.EntityId == e.TargetId);
+                    var delay = _reduceMotion ? 0 : revealed.Count > 0 ? CardFlightDuration + .12 : .06;
+                    AnimateHealthLoss(victim, e.Amount, delay);
+                    FloatFeedback($"−{e.Amount}", SeatCenter(victim.EntityId), new Color("FF6A4F"), true, true, delay);
+                    break;
+                case "card.snatched":
+                    FlyCard(null, SeatCenter(e.TargetId!), SeatCenter(e.ActorId), drawing: true);
+                    break;
+                case "card.dismantled" when e.Card is { } removed:
+                    FlyCard(removed, SeatCenter(e.TargetId!), center);
+                    break;
                 case "hp.recovered":
                     FloatFeedback($"+{e.Amount}  回复", SeatCenter(e.TargetId ?? e.ActorId), new Color("A8F0A1"), true); break;
                 case "slash.dodged":
@@ -326,12 +420,6 @@ public partial class BattleScreen
             for (var i = 0; i < Math.Min(4, draws.Count()); i++) FlyCard(null, deck, destination, i, drawing: true);
             FloatFeedback($"摸牌 +{draws.Count()}", destination, Gold, delay: .1);
         }
-        if (!_reduceMotion && revealed.Count > 0)
-        {
-            _publicCards.Modulate = new Color(1, 1, 1, 0);
-            var tween = CreateTween().BindNode(_publicCards); tween.TweenInterval(.24);
-            tween.TweenProperty(_publicCards, "modulate:a", 1f, .16);
-        }
     }
 
     private void UpdateHandMotion(double delta)
@@ -339,9 +427,26 @@ public partial class BattleScreen
         if (_hoverButton is { } hovered && (!_handScroll.GetGlobalRect().Intersects(hovered.GetGlobalRect()) || InspectionOpen))
             LowerHandCard(hovered);
         if (!_dragging) return;
+        float follow = _reduceMotion ? 1f : 1f - Mathf.Exp(-22f * (float)delta);
+        _grabLift = _grabLift.Lerp(Vector2.Zero, follow);
+        _dragFace!.GlobalPosition = _dragPoint - _pointerOffset + _grabLift;
+        _dragFace.Rotation = Mathf.Lerp(_dragFace.Rotation, 0, follow);
+        for (var i = 0; i < _dragRow.Length; i++)
+        {
+            if (i == _sourceSlot) continue;
+            var slot = i;
+            if (i > _sourceSlot && i <= _insertSlot) slot--;
+            if (i < _sourceSlot && i >= _insertSlot) slot++;
+            var button = _dragRow[i];
+            button.Position = new Vector2(Mathf.Lerp(button.Position.X, slot * _slotStep, follow), button.Position.Y);
+        }
         var rect = _handScroll.GetGlobalRect();
         if (_dragPoint.Y < rect.Position.Y - 24 || _dragPoint.Y > rect.End.Y + 24) return;
         var direction = _dragPoint.X < rect.Position.X + 28 ? -1 : _dragPoint.X > rect.End.X - 28 ? 1 : 0;
-        if (direction != 0) _handScroll.ScrollHorizontal += direction * Math.Max(1, (int)(640 * delta));
+        if (direction != 0)
+        {
+            _handScroll.ScrollHorizontal += direction * Math.Max(1, (int)(640 * delta));
+            UpdateDragTarget(_dragPoint);
+        }
     }
 }

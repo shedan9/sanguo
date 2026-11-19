@@ -52,7 +52,7 @@ public partial class BattleScreen
             CaptureHandOrigins();
             ResetHandMotion();
             Clear(_table); Clear(_selfSeat); Clear(_hand); Clear(_skills);
-            _seatButtons.Clear(); _handCards.Clear(); _skillButtons.Clear(); _processingCards.Clear(); _handInspectionDetails.Clear();
+            _seatButtons.Clear(); _handCards.Clear(); _skillButtons.Clear(); _processingCards.Clear(); _publicFaces.Clear(); _handInspectionDetails.Clear();
             _status.Text = $"单机对战 [{view.Combatants.Count(u => u.TeamId == "a")} 对 {view.Combatants.Count(u => u.TeamId == "b")}]　{UnitName(view, view.ActiveUnitId)}的回合";
             if (_discardVersion != view.StateVersion) { _selectedDiscards.Clear(); _discardVersion = view.StateVersion; }
             var actorId = view.PendingDecision?.ControllerId == "player" ? view.PendingDecision.ActorId : null;
@@ -133,6 +133,7 @@ public partial class BattleScreen
         button.AddThemeStyleboxOverride("hover", hover); button.AddThemeStyleboxOverride("pressed", hover);
         var team = unit.TeamId == "a" ? "shu" : "wei";
         var picture = Picture(_art.Portrait(unit), TextureRect.StretchModeEnum.KeepAspectCovered);
+        picture.Name = "Portrait";
         Place(picture, .035f, .025f, .965f, .97f); button.AddChild(picture);
         if (!unit.Alive) picture.Material = _fallenPortrait;
         var frame = Picture(_art.Sprite("seatbottom", unit.Alive ? "other_general_border3" : "other_general_bordergray"));
@@ -156,7 +157,8 @@ public partial class BattleScreen
         var hpRail = Picture(_art.Sprite("seat", "blood_bg_s")); Place(hpRail, .86f, hpTop, .99f, .97f); button.AddChild(hpRail);
         for (var i = 0; i < unit.MaxHp; i++)
         {
-            var life = Picture(_art.Sprite("seat", i >= unit.Hp ? "blood_empty_s" : unit.Hp <= 1 ? "blood_red_s" : unit.Hp == 2 ? "blood_yellow_s" : "blood_green_s"), TextureRect.StretchModeEnum.KeepAspectCentered);
+            var life = Picture(_art.Sprite("seat", LifeSprite(i, unit.Hp)), TextureRect.StretchModeEnum.KeepAspectCentered);
+            life.Name = $"Life{i}";
             Place(life, .86f, hpTop + i * .102f, .99f, hpTop + (i + 1) * .102f); button.AddChild(life);
         }
         var count = Picture(_art.Sprite("seat", "card_num_bg_" + team));
@@ -186,18 +188,19 @@ public partial class BattleScreen
         button.MouseEntered += () =>
         {
             if (!targetable) return;
-            _hoverTarget = unit.EntityId;
             glow.Texture = _art.Sprite("seatbottom", selected ? "seat_select_state_3" : "seat_select_state_2");
             glow.Visible = true;
         };
         button.MouseExited += () =>
         {
-            if (_hoverTarget == unit.EntityId) _hoverTarget = null;
             glow.Visible = selected || active;
             glow.Texture = _art.Sprite("seatbottom", selected ? "seat_select_state_3" : "seat_select_state_1");
         };
         return button;
     }
+
+    private static string LifeSprite(int slot, int hp) => slot >= hp ? "blood_empty_s"
+        : hp <= 1 ? "blood_red_s" : hp == 2 ? "blood_yellow_s" : "blood_green_s";
 
     private void RenderSkills(BattleView view, string? actorId)
     {
@@ -228,6 +231,7 @@ public partial class BattleScreen
         if (_sortByKind) hand = hand.OrderBy(c => c.Kind).ThenBy(c => c.Suit, StringComparer.Ordinal).ThenBy(c => c.Rank);
         var cards = hand.ToArray();
         var owner = actorId ?? _focusUnitId;
+        var closeGaps = !_reduceMotion && owner == _handOrderOwner && cards.Length < _handOrigins.Count;
         if (_handOrderOwner != owner)
         {
             if (_handOrderOwner is { } previousOwner) _ordersByOwner[previousOwner] = [.. _handOrder];
@@ -241,17 +245,25 @@ public partial class BattleScreen
         // Reserve scrollbar space even when the hand overflows; the row must fit above the window edge.
         var height = Math.Max(72, GetViewportRect().Size.Y * .191f - 18); var width = height * .715f;
         var available = GetViewportRect().Size.X * .65f;
-        var step = cards.Length <= 1 ? width : Math.Clamp((available - width) / Math.Max(1, cards.Length - 1), Math.Min(28, width), width + 3);
-        _hand.CustomMinimumSize = new Vector2(step * Math.Max(0, cards.Length - 1) + width, height + 10);
+        _slotStep = cards.Length <= 1 ? width : Math.Clamp((available - width) / Math.Max(1, cards.Length - 1), Math.Min(28, width), width + 3);
+        _hand.CustomMinimumSize = new Vector2(_slotStep * Math.Max(0, cards.Length - 1) + width, height + 10);
         for (var i = 0; i < cards.Length; i++)
         {
             var card = cards[i];
             var legal = view.LegalActions.Any(a => a.SkillId == _selectedSkill && (a.CardId == card.InstanceId ||
                 _selectedSkill == BattleSkills.FenjiI && a.CardId == _selectedCard && a.CostCardId == card.InstanceId));
             var button = CreateCardButton(card, legal, () => SelectMouseCard(card.InstanceId));
-            button.CustomMinimumSize = Vector2.Zero; button.Position = new Vector2(i * step, card.InstanceId == _selectedCard || card.InstanceId == _costCard || _selectedDiscards.Contains(card.InstanceId) ? 0 : 9); button.Size = new Vector2(width, height);
+            button.CustomMinimumSize = Vector2.Zero; button.Position = new Vector2(i * _slotStep, card.InstanceId == _selectedCard || card.InstanceId == _costCard || _selectedDiscards.Contains(card.InstanceId) ? 0 : 9); button.Size = new Vector2(width, height);
             _hand.AddChild(button); _handCards.Add(button, card);
             BindHandMotion(button, card);
+            if (closeGaps && _handOrigins.TryGetValue(card.InstanceId, out var previous))
+            {
+                var targetX = button.Position.X;
+                var previousX = previous.Position.X - _hand.GlobalPosition.X;
+                if (Mathf.Abs(previousX - targetX) < 1) continue;
+                _handReflow ??= _hand.CreateTween().SetParallel().SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+                _handReflow.TweenProperty(button, "position:x", targetX, .16).From(previousX);
+            }
         }
     }
 
@@ -291,7 +303,7 @@ public partial class BattleScreen
         if (candidates.Length == 1) _interaction.Select(candidates[0]);
     }
 
-    private void CancelMouseSelection() { var card = _selectedCard; ClearSelection(); _targetLine.ClearLine(); Refresh("已取消选择。", new(FocusArea.Hand, card)); }
+    private void CancelMouseSelection() { var card = _selectedCard; ClearSelection(); Refresh("已取消选择。", new(FocusArea.Hand, card)); }
 
     private void SubmitImmediate(BattleActionKind kind)
     {
@@ -352,7 +364,15 @@ public partial class BattleScreen
         _choiceOverlay.Visible = view.PendingDecision?.ControllerId == "player" && view.Response?.Kind == EffectKind.SelectHandCard;
         if (!_choiceOverlay.Visible) return;
         var shade = new ColorRect { Color = new Color(0, 0, 0, .62f), MouseFilter = MouseFilterEnum.Stop }; Place(shade, 0, 0, 1, 1); _choiceOverlay.AddChild(shade);
-        var panel = new Panel(); Place(panel, .20f, .23f, .80f, .65f); Box(panel, "251F19", "BA9C60", 2); _choiceOverlay.AddChild(panel);
+        var panel = new Panel(); Place(panel, .20f, .23f, .80f, .65f); Box(panel, "251F19", "BA9C60", 2); shade.AddChild(panel);
+        if (_targetLine.ChoiceRevealDelay > 0)
+        {
+            shade.Hide();
+            var reveal = shade.CreateTween();
+            reveal.TweenInterval(_targetLine.ChoiceRevealDelay);
+            reveal.TweenCallback(Callable.From(shade.Show));
+            reveal.TweenProperty(shade, "modulate:a", 1f, .12).From(.35f);
+        }
         var target = UnitName(view, view.Response!.TargetId);
         var title = Text("选择 " + target + " 的牌", 22, Gold); Place(title, .04f, .04f, .96f, .18f); panel.AddChild(title);
         var label = Text("手牌区", 14); Place(label, .04f, .20f, .18f, .30f); panel.AddChild(label);

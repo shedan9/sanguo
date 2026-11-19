@@ -68,6 +68,7 @@ public partial class BattleScreen
         var border = new StyleBoxFlat { BgColor = Paper, BorderColor = Gold,
             BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1 };
         body.AddThemeStyleboxOverride("panel", border); tile.AddChild(body);
+        _publicFaces[item.Card.InstanceId] = body;
         body.AddChild(CardArtwork(item.Card));
         if (item.EffectiveKind != item.Card.Kind)
         {

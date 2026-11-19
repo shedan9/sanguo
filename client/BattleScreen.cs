@@ -97,13 +97,10 @@ public partial class BattleScreen : Control
     {
         var view = _interaction.View;
         var selection = _interaction.Selection;
-        var origin = PreviewTargetLine()?.From;
         var result = _interaction.Confirm();
         ClearSelection();
         Refresh(result.Accepted && selection is not null
             ? UnitName(view, view.PendingDecision!.ActorId) + "：" + Describe(view, selection) + "。" + Outcome(view, _interaction.View) : result.Message);
-        if (result.Accepted && origin is { } from && selection?.TargetId is { } target && _seatButtons.TryGetValue(target, out var seat))
-            _targetLine.Play(from, seat.GetGlobalRect());
     }
 
     private void AdvanceAi()
@@ -158,7 +155,6 @@ public partial class BattleScreen : Control
     {
         _interaction.Cancel(); _selectedCard = null; _selectedTarget = null; _costCard = null; _selectedSkill = null;
         _selectedDiscards.Clear(); _discardVersion = -1;
-        _hoverTarget = null;
     }
 
     private void UpdateLog(BattleView view)
@@ -357,12 +353,9 @@ public partial class BattleScreen : Control
             _ => ""
         }) + (legal ? " 可选择；具体目标、转换技能与成本以合法方案为准。" : " 当前无合法动作。");
         _handInspectionDetails[button] = details;
-        BindCardInspection(button, card, details);
         var hoverBorder = (StyleBoxFlat)border.Duplicate();
         hoverBorder.BorderColor = Gold; hoverBorder.ShadowColor = new Color(Gold, .5f); hoverBorder.ShadowSize = 9;
         button.AddThemeStyleboxOverride("hover", hoverBorder); button.AddThemeStyleboxOverride("pressed", hoverBorder);
-        button.MouseEntered += () => _cardDetail.Text = details;
-        button.MouseExited += () => _cardDetail.Text = MouseHint;
         return button;
     }
 

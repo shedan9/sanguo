@@ -45,6 +45,13 @@ public partial class BattleScreen
         GD.Print($"BATTLE_CLIENT_{(resume ? "RESUME" : "SMOKE")}_OK {BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot)} steps={steps}"); GetTree().Quit();
     }
 
+    private async Task WaitForHandChoice(Button option)
+    {
+        if (!option.IsVisibleInTree())
+            await ToSignal(GetTree().CreateTimer(CardFlightDuration + .4), SceneTreeTimer.SignalName.Timeout);
+        if (!option.IsVisibleInTree()) throw new InvalidOperationException("出牌动效后选牌窗口仍未打开。");
+    }
+
     private async Task MouseClick(Control control, bool hand = false)
     {
         await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -78,7 +85,13 @@ public partial class BattleScreen
             }
             await MouseClick(_confirm); return;
         }
-        if (action.Kind == BattleActionKind.SelectHandCard) { await MouseClick(_choiceActions.Single(p => p.Value == action).Key); return; }
+        if (action.Kind == BattleActionKind.SelectHandCard)
+        {
+            var option = _choiceActions.Single(p => p.Value == action).Key;
+            await WaitForHandChoice(option);
+            await MouseClick(option);
+            return;
+        }
         if (action.Kind == BattleActionKind.Pass) { await MouseClick(_pass); return; }
         if (action.Kind == BattleActionKind.EndPlay) { await MouseClick(_end); return; }
         if (action.SkillId is { } skill && _skillButtons.TryGetValue(skill, out var button)) await MouseClick(button);
@@ -182,7 +195,7 @@ public partial class BattleScreen
             foreach (var (button, card) in _handCards)
             {
                 button.EmitSignal(Control.SignalName.MouseEntered);
-                if (!_cardDetail.Text.StartsWith(Card(card), StringComparison.Ordinal) || button.FocusMode != FocusModeEnum.All) throw new InvalidOperationException("牌面说明或可聚焦查看能力错误。");
+                if (_cardDetail.Text != MouseHint || _inspectionPanel.Visible || !_handInspectionDetails[button].StartsWith(Card(card), StringComparison.Ordinal) || button.FocusMode != FocusModeEnum.All) throw new InvalidOperationException("牌面说明或可聚焦查看能力错误。");
             }
             GD.Print("BATTLE_ARTWORK_SMOKE_OK cards=8 portraits=2"); GetTree().Quit();
         }
@@ -229,6 +242,7 @@ public partial class BattleScreen
             {
                 var action = _interaction.View.LegalActions.First(a => a.CardId is not null && a.SkillId is null && NeedsTarget(a));
                 SelectMouseCard(action.CardId!); SelectTarget(action.TargetId!);
+                if (mode == "target-animation") Confirm();
             }
             else if (mode is "discard" or "discard-selected")
             {
@@ -236,6 +250,7 @@ public partial class BattleScreen
                 if (mode == "discard-selected") AutoSelectDiscards();
             }
             else if (mode is "hover" or "drag" or "cast-animation" or "impact") await PrepareMotionPreview(mode);
+            if (mode == "choice" && _choiceActions.Count > 0) await WaitForHandChoice(_choiceActions.Keys.First());
             if (mode is "idle" or "target" or "selected" or "discard" or "discard-selected" or "nullification")
                 MovePointer(new Vector2(4, 4));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
@@ -286,7 +301,7 @@ public partial class BattleScreen
             if (_selectedCard != action.CardId || !_sortByKind) throw new InvalidOperationException("整理手牌丢失选择。");
             await MouseClick(_seatButtons[action.TargetId!]);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            if (!_targetLine.HasLine || _targetLine.MouseFilter != MouseFilterEnum.Ignore) throw new InvalidOperationException("指向线未显示或阻挡输入。");
+            if (_targetLine.HasLine || _targetLine.MouseFilter != MouseFilterEnum.Ignore) throw new InvalidOperationException("选目标时过早显示金线或阻挡输入。");
             await MouseClick(_cancel);
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (_targetLine.HasLine) throw new InvalidOperationException("取消后指向线未清理。");
@@ -315,11 +330,6 @@ public partial class BattleScreen
             await MouseClick(_confirm);
             if (!expected.All(id => _interaction.Snapshot.Battle.DiscardPile.Any(c => c.InstanceId == id))
                 || ChoosingDiscards || _selectedDiscards.Count != 0) throw new InvalidOperationException("批量弃牌未正确提交。");
-            _targetLine.Play(new Vector2(20, 200), _seatButtons.Values.First().GetGlobalRect());
-            await ToSignal(GetTree().CreateTimer(.12), SceneTreeTimer.SignalName.Timeout);
-            if (!_targetLine.HasLine) throw new InvalidOperationException("已提交指向动画过早消失。");
-            await ToSignal(GetTree().CreateTimer(.8), SceneTreeTimer.SignalName.Timeout);
-            if (_targetLine.HasLine) throw new InvalidOperationException("已提交指向动画未淡出。");
             GD.Print("BATTLE_DESKTOP_SMOKE_OK discard=5 sidebar=3 targeting=animated sort=preserved"); GetTree().Quit();
         }
         catch (Exception ex) { GD.PushError(ex.ToString()); GetTree().Quit(1); }

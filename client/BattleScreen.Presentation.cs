@@ -132,7 +132,7 @@ public partial class BattleScreen
         _doubleClickChoice = new CheckButton { Text = "双击确认已明确的牌或目标", CustomMinimumSize = new Vector2(0, 44), ButtonPressed = true };
         _doubleClickChoice.Toggled += value => { _doubleClickConfirm = value; SavePresentationSettings(); };
         settings.AddChild(_doubleClickChoice);
-        settings.AddChild(Text("双击遇到多个目标或技能成本时仍需选择；右键取消当前选择。Esc先收起卡面预览，再取消选择。\n确认、放弃响应和结束出牌均保留可见按钮；战斗提示始终显示文字。", 16));
+        settings.AddChild(Text("双击遇到多个目标或技能成本时仍需选择；右键手牌查看详情，左键收起；在牌桌空白处右键取消选择。Esc先收起卡面预览，再取消选择。\n确认、放弃响应和结束出牌均保留可见按钮；战斗提示始终显示文字。", 16));
         _settingsDialog.GetOkButton().Text = "返回战斗";
         _settingsDialog.Canceled += RestoreDialogFocus; _settingsDialog.Confirmed += RestoreDialogFocus;
         GetWindow().SizeChanged += ApplyInterfaceScale;
@@ -245,6 +245,22 @@ public partial class BattleScreen
     private bool HandleBattlePointer(InputEventMouseButton input)
     {
         if (!input.Pressed || BattleDialogVisible || _choiceOverlay.Visible) return false;
+        if (_pinnedHandInspection is not null && input.ButtonIndex == MouseButton.Left)
+        {
+            ClearCardInspection();
+            return true;
+        }
+        if (input.ButtonIndex is not (MouseButton.Left or MouseButton.Right)) return false;
+        var card = _handCards.Reverse().FirstOrDefault(p => p.Key.GetGlobalRect().HasPoint(input.Position)
+            && _handScroll.GetGlobalRect().HasPoint(input.Position));
+        if (input.ButtonIndex == MouseButton.Right && card.Key is not null)
+        {
+            LowerHandCard(_hoverButton);
+            _pinnedHandInspection = new(card.Key, card.Value, _handInspectionDetails[card.Key]);
+            _inspectionDismissed = false;
+            UpdateCardInspection();
+            return true;
+        }
         if (input.ButtonIndex == MouseButton.Right)
         {
             if (!_cancel.Disabled) _cancel.EmitSignal(BaseButton.SignalName.Pressed);
@@ -252,9 +268,6 @@ public partial class BattleScreen
         }
         if (!_doubleClickConfirm || input.ButtonIndex != MouseButton.Left || !input.DoubleClick) return false;
         if (ChoosingDiscards) return false;
-        // Later siblings paint on top when a large hand overlaps.
-        var card = _handCards.Reverse().FirstOrDefault(p => p.Key.GetGlobalRect().HasPoint(input.Position)
-            && AncestorScrolls(p.Key).All(s => s.GetGlobalRect().HasPoint(input.Position)));
         if (card.Key is not null)
         {
             if (card.Key.Disabled) return true;

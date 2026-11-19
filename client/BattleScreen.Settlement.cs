@@ -9,6 +9,7 @@ public partial class BattleScreen
     private long _presentedSequence;
     private BattleCard? _lastPublicCard;
     private string _settlementText = "";
+    private readonly Dictionary<string, Control> _publicFaces = new(StringComparer.Ordinal);
     private HBoxContainer _publicCards = null!;
     private Label _resolution = null!;
     private bool InspectionOpen => BattleDialogVisible || _setupDialog.Visible;
@@ -36,7 +37,7 @@ public partial class BattleScreen
                 or "play.ended" or "response.passed" or "nullification.window_closed" or "card.finished_after_gain")).ToArray();
             _settlementText = string.Join("；", visible.TakeLast(3).Select(e => DescribeEvent(view, e)));
             var directed = events.LastOrDefault(e => e.Code is "slash.used" or "duel.used" or "dismantlement.used" or "snatch.used");
-            if (directed is not null) PlayPublicTargetLine(view, directed.ActorId, directed.TargetId);
+            if (directed is not null) PlayPublicTargetLine(directed.ActorId, directed.TargetId);
         }
         var center = new VBoxContainer { AnchorLeft = .28f, AnchorRight = .72f, AnchorTop = .42f, AnchorBottom = .78f,
             Alignment = BoxContainer.AlignmentMode.Center, MouseFilter = MouseFilterEnum.Ignore };
@@ -69,6 +70,7 @@ public partial class BattleScreen
             face.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
             face.Size = new Vector2(width, height);
             panel.AddChild(face);
+            _publicFaces[card.InstanceId] = face;
             _publicCards.AddChild(panel);
             BindCardInspection(panel, card, Card(card) + " · 最近公开的牌，当前不在处理区。");
         }

@@ -28,6 +28,7 @@ public partial class BattleScreen
         if (input is InputEventKey { Keycode: Key.Escape, Pressed: true, Echo: false }
             && !BattleDialogVisible && _inspectionPanel.Visible)
         {
+            if (_pinnedHandInspection is not null) ClearCardInspection();
             _inspectionDismissed = true;
             _inspectionPanel.Hide();
             GetViewport().SetInputAsHandled();
@@ -42,20 +43,20 @@ public partial class BattleScreen
     {
         _helpDialog = new AcceptDialog { Title = "操作说明 · 键盘与鼠标" };
         var help = new RichTextLabel { Text =
-            "鼠标：悬停放大并查看用途；拖动整理手牌。拖向发光目标松手出牌，自用和响应牌拖入中央出牌区。无效放置自动收回。\n\n"
+            "鼠标：悬停抬牌，右键看手牌详情，左键收起；拖动整理手牌。拖向发光目标松手出牌，自用和响应牌拖入中央出牌区。无效放置自动收回。\n\n"
             + "Tab：移到下一个可用控件；Shift+Tab：返回上一个。\n"
             + "Enter或空格：激活当前按钮。描边标明当前焦点。\n\n"
             + "选择技能（如需要）、手牌、额外成本和合法目标，再按确定。\n"
             + "选好目标与技能成本后，核对预览，再按“确认操作”。\n"
             + "“取消选择”不消耗牌，焦点返回原手牌。\n"
             + "放弃响应与结束出牌使用对应按钮；弃牌可多选或一键选择，选满数量后确定。\n\n"
-            + "悬停或聚焦卡面可展开详情，Esc收起；查看不出牌。\n"
+            + "悬停或聚焦公开处理区的卡面可展开详情，Esc收起；查看不出牌。\n"
             + "“手牌一览”可用方向键逐张查看，包括当前不可用的牌。\n"
             + "处理区卡面可聚焦查看；手牌、目标和方案随焦点滚动。\n"
             + "战斗记录可用Tab聚焦滚动条，按方向键上下查看历史。\n"
             + "战斗记录和本说明均可聚焦关闭按钮返回。\n"
             + "弹层内按Esc也可关闭，不会放弃战斗响应。\n"
-            + "右键取消当前选择，不放弃响应、不结束回合。\n"
+            + "在牌桌空白处右键取消当前选择，不放弃响应、不结束回合。\n"
             + "双击已明确的牌或目标可确认；多个成本仍需选择，可在界面设置中关闭。\n"
             + "技能按钮可筛选可用手牌和成本；角色资料可查看完整技能。\n"
             + "界面设置支持100%至200%与跟随系统缩放、减少动态。\n"
@@ -173,7 +174,7 @@ public partial class BattleScreen
 
     private void ShowBattleDialog(AcceptDialog dialog)
     {
-        _inspectionPanel.Hide();
+        ClearCardInspection();
         var owner = GetViewport().GuiGetFocusOwner();
         _dialogReturnFocus = CaptureBattleFocus(owner);
         _dialogReturnControl = _dialogReturnFocus is null ? owner : null;

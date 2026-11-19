@@ -7,7 +7,7 @@ public partial class BattleScreen
 {
     private sealed record CardInspection(Control Owner, BattleCard Card, string Details);
     private PanelContainer _inspectionPanel = null!, _handInspectionContent = null!;
-    private CardInspection? _hoverInspection, _focusInspection;
+    private CardInspection? _hoverInspection, _focusInspection, _pinnedHandInspection;
     private const double HoverDetailDelay = .40;
     private Godot.Timer _inspectionDelay = null!;
     private bool _inspectionDismissed;
@@ -72,19 +72,22 @@ public partial class BattleScreen
     private void ClearCardInspection()
     {
         _inspectionDelay.Stop();
-        _hoverInspection = _focusInspection = null;
+        _hoverInspection = _focusInspection = _pinnedHandInspection = null;
+        _cardDetail.Text = MouseHint;
         _inspectionDismissed = false;
         _inspectionPanel.Hide();
     }
 
+    private CardInspection? CurrentInspection => _pinnedHandInspection ?? _hoverInspection ?? _focusInspection;
+
     private void UpdateCardInspection()
     {
-        var entry = _hoverInspection ?? _focusInspection;
+        var entry = CurrentInspection;
         _inspectionPanel.Hide();
         _cardDetail.Text = entry?.Details ?? MouseHint;
         if (entry is null || _inspectionDismissed || BattleDialogVisible || _dragging || _choiceOverlay.Visible || WaitingForDetail) return;
         Clear(_inspectionPanel);
-        _inspectionPanel.AddChild(InspectionContent(entry.Card, entry.Details, 300, "Esc收起 · 查看不提交操作"));
+        _inspectionPanel.AddChild(InspectionContent(entry.Card, entry.Details, 300, _pinnedHandInspection is null ? "Esc收起" : "左键或 Esc 收起"));
         _inspectionPanel.ResetSize();
         _inspectionPanel.Show();
         PositionCardInspection();
@@ -113,21 +116,25 @@ public partial class BattleScreen
     {
         if (_motionLayer is not null) UpdateHandMotion(delta);
         if (_resultDialog is not null) UpdateBattleResult();
-        if (_helpDialog is not null && _unitDialog is not null) RevealChangedFocusLayout();
-        if (_inspectionPanel is not null && (_hoverInspection ?? _focusInspection) is not null && !_inspectionDismissed)
+        if (!_dragging && _helpDialog is not null && _unitDialog is not null) RevealChangedFocusLayout();
+        if (_inspectionPanel is not null && CurrentInspection is not null && !_inspectionDismissed)
             PositionCardInspection();
     }
 
-    private bool WaitingForDetail => _hoverInspection is not null && _hoverInspection != _focusInspection && !_inspectionDelay.IsStopped();
+    private bool WaitingForDetail => _pinnedHandInspection is null && _hoverInspection is not null && _hoverInspection != _focusInspection && !_inspectionDelay.IsStopped();
 
     private void PositionCardInspection()
     {
-        var entry = _hoverInspection ?? _focusInspection;
+        var entry = CurrentInspection;
         if (entry is null || WaitingForDetail || !GodotObject.IsInstanceValid(entry.Owner) || !entry.Owner.IsVisibleInTree() || _inspectionDismissed || BattleDialogVisible || _dragging || _choiceOverlay.Visible)
         { _inspectionPanel.Hide(); return; }
         var source = entry.Owner.GetGlobalRect();
         if (AncestorScrolls(entry.Owner).Any(s => !s.GetGlobalRect().Intersects(source)))
-        { _inspectionPanel.Hide(); return; }
+        {
+            if (_pinnedHandInspection is not null) ClearCardInspection();
+            else _inspectionPanel.Hide();
+            return;
+        }
         _inspectionPanel.Show();
         var size = _inspectionPanel.Size;
         var bounds = GetViewportRect().Size;

@@ -17,7 +17,6 @@ public partial class BattleScreen
     private bool _sidebarCollapsed, _sortByKind;
     private long _discardVersion = -1;
     private BattleTargetLine _targetLine = null!;
-    private string? _hoverTarget;
     private const float TableRight = .826f;
 
     private bool ChoosingDiscards => _interaction.View is { Phase: BattlePhase.Discard, Response: null,
@@ -146,7 +145,7 @@ public partial class BattleScreen
         _feedback = DesktopLabel("", 12, new Color("D7C8A9")); Place(_feedback, .19f, .643f, .73f, .673f);
         _feedback.MaxLinesVisible = 1; _feedback.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; AddChild(_feedback);
         BuildDesktopDialogs();
-        _targetLine = new BattleTargetLine { Preview = PreviewTargetLine }; Place(_targetLine, 0, 0, 1, 1); AddChild(_targetLine);
+        _targetLine = new BattleTargetLine(); Place(_targetLine, 0, 0, 1, 1); AddChild(_targetLine);
         BuildMotionLayer();
         _choiceOverlay = new Control { MouseFilter = MouseFilterEnum.Stop, ZIndex = 50 }; Place(_choiceOverlay, 0, 0, 1, 1); AddChild(_choiceOverlay); _choiceOverlay.Visible = false;
         _aiTimer = new Godot.Timer { WaitTime = .45, OneShot = false }; AddChild(_aiTimer); _aiTimer.Timeout += AdvanceAi;
@@ -322,22 +321,9 @@ public partial class BattleScreen
         ClearSelection(); Refresh($"已弃置{ids.Length}张牌。");
     }
 
-    private (Vector2 From, Vector2 To)? PreviewTargetLine()
-    {
-        if (_dragging && _dragTarget is { } dragTarget && _seatButtons.TryGetValue(dragTarget, out var dragSeat))
-            return (_dragFace!.GetGlobalRect().GetCenter(), dragSeat.GetGlobalRect().GetCenter());
-        var target = _selectedTarget ?? _hoverTarget;
-        if (_selectedCard is null || target is null || !CandidateActions(_interaction.View).Any(a => a.TargetId == target && NeedsTarget(a))
-            || !_seatButtons.TryGetValue(target, out var seat)) return null;
-        var card = _handCards.FirstOrDefault(p => p.Value.InstanceId == _selectedCard).Key;
-        if (card is null || !IsInstanceValid(card)) return null;
-        var rect = card.GetGlobalRect();
-        return (rect.Position + rect.Size * new Vector2(.5f, .80f), seat.GetGlobalRect().GetCenter());
-    }
-
-    private void PlayPublicTargetLine(BattleView view, string source, string? target)
+    private void PlayPublicTargetLine(string source, string? target)
     {
         if (target is null || source == target || !_seatButtons.TryGetValue(source, out var from) || !_seatButtons.TryGetValue(target, out var to)) return;
-        _targetLine.Play(from.GetGlobalRect().GetCenter(), to.GetGlobalRect());
+        _targetLine.Play(from.GetGlobalRect().GetCenter(), to.GetGlobalRect(), _reduceMotion ? 0 : CardFlightDuration);
     }
 }
