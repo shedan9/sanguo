@@ -68,18 +68,14 @@ public partial class BattleScreen
         var border = new StyleBoxFlat { BgColor = Paper, BorderColor = Gold,
             BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1 };
         body.AddThemeStyleboxOverride("panel", border); tile.AddChild(body);
-        body.AddChild(Picture(_art.CardFace(item.Card.Kind)));
-        var captionBg = new ColorRect { Color = Paper, AnchorTop = 1, AnchorBottom = 1, AnchorRight = 1,
-            OffsetTop = -16, MouseFilter = MouseFilterEnum.Ignore };
-        body.AddChild(captionBg);
-        var caption = Text(CardName(item.EffectiveKind), 12, Ink);
-        caption.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); caption.HorizontalAlignment = HorizontalAlignment.Center;
-        caption.MouseFilter = MouseFilterEnum.Ignore; captionBg.AddChild(caption);
-        var face = Text(Card(item.Card).Split(' ')[0], 12, item.Card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
-        face.AutowrapMode = TextServer.AutowrapMode.Off;
-        face.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var faceBg = new ColorRect { Color = Paper, Size = new Vector2(32, 16), MouseFilter = MouseFilterEnum.Ignore };
-        body.AddChild(faceBg); faceBg.AddChild(face);
+        body.AddChild(CardArtwork(item.Card));
+        if (item.EffectiveKind != item.Card.Kind)
+        {
+            var caption = DesktopLabel("作为【" + CardName(item.EffectiveKind) + "】", 12, Gold);
+            var band = Picture(_art.Sprite("seat", "seat_opt_tips_bg"));
+            Place(band, .02f, .78f, .98f, .98f); body.AddChild(band);
+            caption.HorizontalAlignment = HorizontalAlignment.Center; Place(caption, 0, 0, 1, 1); band.AddChild(caption);
+        }
         var details = $"{marker} · 原牌{Card(item.Card)} · 本次作为{CardName(item.EffectiveKind)}"
             + (item.SkillId is null ? "" : $"（{SkillName(item.SkillId)}）")
             + (item.SourceId is null ? "" : $" · {UnitName(view, item.SourceId)} → {UnitName(view, item.TargetId ?? item.SourceId)}")

@@ -236,6 +236,8 @@ public partial class BattleScreen
                 if (mode == "discard-selected") AutoSelectDiscards();
             }
             else if (mode is "hover" or "drag" or "cast-animation" or "impact") await PrepareMotionPreview(mode);
+            if (mode is "idle" or "target" or "selected" or "discard" or "discard-selected" or "nullification")
+                MovePointer(new Vector2(4, 4));
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame); await ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
             if (mode is "target-animation" or "cast-animation")
             {
@@ -293,6 +295,10 @@ public partial class BattleScreen
             if (!ChoosingDiscards || RequiredDiscards != 5) throw new InvalidOperationException("弃牌预览应要求5张。");
             hash = BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot);
             var first = _handCards.First().Value.InstanceId;
+            await DoubleClickPresentation(_handCards.First().Key);
+            if (hash != BasicBattleSnapshotCodec.StateHash(_interaction.Snapshot) || RequiredDiscards != 5)
+                throw new InvalidOperationException("双击手牌绕过了弃牌确认。");
+            if (_selectedDiscards.Count > 0) await MouseClick(_cancel);
             await MouseClick(_handCards.Single(p => p.Value.InstanceId == first).Key, true);
             if (_selectedDiscards.Count != 1 || !_confirm.Disabled) throw new InvalidOperationException("不足5张仍可确认。");
             await MouseClick(_handCards.Single(p => p.Value.InstanceId == first).Key, true);
@@ -309,7 +315,7 @@ public partial class BattleScreen
             await MouseClick(_confirm);
             if (!expected.All(id => _interaction.Snapshot.Battle.DiscardPile.Any(c => c.InstanceId == id))
                 || ChoosingDiscards || _selectedDiscards.Count != 0) throw new InvalidOperationException("批量弃牌未正确提交。");
-            _targetLine.Play(new Vector2(20, 200), new Vector2(300, 20));
+            _targetLine.Play(new Vector2(20, 200), _seatButtons.Values.First().GetGlobalRect());
             await ToSignal(GetTree().CreateTimer(.12), SceneTreeTimer.SignalName.Timeout);
             if (!_targetLine.HasLine) throw new InvalidOperationException("已提交指向动画过早消失。");
             await ToSignal(GetTree().CreateTimer(.8), SceneTreeTimer.SignalName.Timeout);

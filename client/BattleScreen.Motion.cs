@@ -61,22 +61,14 @@ public partial class BattleScreen
         face.AddThemeStyleboxOverride("panel", style);
         if (card is not null)
         {
-            var picture = Picture(_art.CardFace(card.Kind));
+            var picture = CardArtwork(card);
             picture.OffsetLeft = picture.OffsetTop = 3; picture.OffsetRight = picture.OffsetBottom = -3;
             face.AddChild(picture);
-            var rank = DesktopLabel(Card(card).Split(' ')[0], 14, card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
-            var paper = new Panel { MouseFilter = MouseFilterEnum.Ignore };
-            Place(paper, .035f, .025f, .46f, .19f); Box(paper, "EDE3CF", "EDE3CF", 0); face.AddChild(paper);
-            Place(rank, .025f, 0, .98f, 1); paper.AddChild(rank);
-            var footer = new Panel { MouseFilter = MouseFilterEnum.Ignore };
-            Place(footer, .02f, .81f, .98f, .98f); Box(footer, "211B16E8", "211B16", 0); face.AddChild(footer);
-            var name = DesktopLabel(CardName(card.Kind), 13, Paper); name.HorizontalAlignment = HorizontalAlignment.Center;
-            Place(name, 0, 0, 1, 1); footer.AddChild(name);
         }
         else
         {
-            var back = DesktopLabel("三\n国\n杀", 20, Gold); back.HorizontalAlignment = HorizontalAlignment.Center;
-            Place(back, .1f, .1f, .9f, .9f); face.AddChild(back);
+            var back = Picture(_art.Sprite("seatbottom", "card_normal"));
+            Place(back, .01f, .01f, .99f, .99f); face.AddChild(back);
         }
         _motionLayer.AddChild(face);
         return face;
@@ -104,6 +96,7 @@ public partial class BattleScreen
         _hoverButton = button;
         _hoverFace = MotionFace(card, button.Size);
         _hoverFace.GlobalPosition = button.GlobalPosition;
+        if (button.Disabled) _hoverFace.Modulate = new Color("A89F96");
         button.Modulate = new Color(1, 1, 1, .18f);
         var face = _hoverFace;
         _hoverTween = CreateTween().SetParallel().SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);

@@ -5,10 +5,11 @@ namespace Sanguo.Client;
 
 public partial class BattleScreen
 {
-    private const string CardDetailHint = "悬停或用Tab聚焦卡面展开详情；手牌一览可查看全部当前手牌。";
     private sealed record CardInspection(Control Owner, BattleCard Card, string Details);
     private PanelContainer _inspectionPanel = null!, _handInspectionContent = null!;
     private CardInspection? _hoverInspection, _focusInspection;
+    private const double HoverDetailDelay = .40;
+    private Godot.Timer _inspectionDelay = null!;
     private bool _inspectionDismissed;
     private Button _inspectButton = null!;
     private AcceptDialog _handDialog = null!;
@@ -20,6 +21,8 @@ public partial class BattleScreen
 
     private void BuildCardInspection()
     {
+        _inspectionDelay = new Godot.Timer { WaitTime = HoverDetailDelay, OneShot = true };
+        AddChild(_inspectionDelay); _inspectionDelay.Timeout += UpdateCardInspection;
         // This display layer never captures pointer input or keyboard focus.
         var layer = new CanvasLayer { Layer = 10 };
         AddChild(layer);
@@ -48,7 +51,7 @@ public partial class BattleScreen
     private static void StyleInspectionPanel(PanelContainer panel)
         => panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
         {
-            BgColor = new Color("172822"), BorderColor = Gold,
+            BgColor = new Color("27211C"), BorderColor = Gold,
             BorderWidthLeft = 2, BorderWidthRight = 2, BorderWidthTop = 2, BorderWidthBottom = 2,
             ContentMarginLeft = 12, ContentMarginRight = 12, ContentMarginTop = 12, ContentMarginBottom = 12
         });
@@ -56,7 +59,11 @@ public partial class BattleScreen
     private void BindCardInspection(Control owner, BattleCard card, string details)
     {
         var entry = new CardInspection(owner, card, details);
-        owner.MouseEntered += () => { _hoverInspection = entry; _inspectionDismissed = false; UpdateCardInspection(); };
+        owner.MouseEntered += () =>
+        {
+            _hoverInspection = entry; _inspectionDismissed = false;
+            _inspectionDelay.Start(); UpdateCardInspection();
+        };
         owner.MouseExited += () => { if (_hoverInspection == entry) _hoverInspection = null; UpdateCardInspection(); };
         owner.FocusEntered += () => { _focusInspection = entry; _inspectionDismissed = false; UpdateCardInspection(); };
         owner.FocusExited += () => { if (_focusInspection == entry) _focusInspection = null; UpdateCardInspection(); };
@@ -64,6 +71,7 @@ public partial class BattleScreen
 
     private void ClearCardInspection()
     {
+        _inspectionDelay.Stop();
         _hoverInspection = _focusInspection = null;
         _inspectionDismissed = false;
         _inspectionPanel.Hide();
@@ -73,8 +81,8 @@ public partial class BattleScreen
     {
         var entry = _hoverInspection ?? _focusInspection;
         _inspectionPanel.Hide();
-        _cardDetail.Text = entry?.Details ?? CardDetailHint;
-        if (entry is null || _inspectionDismissed || BattleDialogVisible || _dragging || _choiceOverlay.Visible) return;
+        _cardDetail.Text = entry?.Details ?? MouseHint;
+        if (entry is null || _inspectionDismissed || BattleDialogVisible || _dragging || _choiceOverlay.Visible || WaitingForDetail) return;
         Clear(_inspectionPanel);
         _inspectionPanel.AddChild(InspectionContent(entry.Card, entry.Details, 300, "Esc收起 · 查看不提交操作"));
         _inspectionPanel.ResetSize();
@@ -89,21 +97,7 @@ public partial class BattleScreen
         var face = new Panel { CustomMinimumSize = expanded ? new Vector2(186, 260) : new Vector2(112, 156), MouseFilter = MouseFilterEnum.Ignore,
             SizeFlagsVertical = SizeFlags.ShrinkBegin };
         row.AddChild(face);
-        face.AddChild(Picture(_art.CardFace(card.Kind)));
-        var rankBackground = new ColorRect { Color = Paper, Position = new Vector2(3, 3), Size = new Vector2(32, 48),
-            MouseFilter = MouseFilterEnum.Ignore };
-        face.AddChild(rankBackground);
-        var rank = Text(Card(card).Split(' ')[0], 16, card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
-        rank.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); rank.AutowrapMode = TextServer.AutowrapMode.Off;
-        rank.HorizontalAlignment = HorizontalAlignment.Center; rank.MouseFilter = MouseFilterEnum.Ignore;
-        rankBackground.AddChild(rank);
-        var caption = new ColorRect { Color = Paper, AnchorRight = 1, AnchorTop = 1, AnchorBottom = 1,
-            OffsetTop = -26, MouseFilter = MouseFilterEnum.Ignore };
-        face.AddChild(caption);
-        var identity = Text(Card(card), 15, card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
-        identity.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        identity.HorizontalAlignment = HorizontalAlignment.Center; identity.MouseFilter = MouseFilterEnum.Ignore;
-        caption.AddChild(identity);
+        face.AddChild(CardArtwork(card));
         var column = new VBoxContainer { CustomMinimumSize = new Vector2(textWidth, 0),
             SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         column.AddThemeConstantOverride("separation", 8); row.AddChild(column);
@@ -124,10 +118,12 @@ public partial class BattleScreen
             PositionCardInspection();
     }
 
+    private bool WaitingForDetail => _hoverInspection is not null && _hoverInspection != _focusInspection && !_inspectionDelay.IsStopped();
+
     private void PositionCardInspection()
     {
         var entry = _hoverInspection ?? _focusInspection;
-        if (entry is null || !GodotObject.IsInstanceValid(entry.Owner) || !entry.Owner.IsVisibleInTree() || _inspectionDismissed || BattleDialogVisible || _dragging || _choiceOverlay.Visible)
+        if (entry is null || WaitingForDetail || !GodotObject.IsInstanceValid(entry.Owner) || !entry.Owner.IsVisibleInTree() || _inspectionDismissed || BattleDialogVisible || _dragging || _choiceOverlay.Visible)
         { _inspectionPanel.Hide(); return; }
         var source = entry.Owner.GetGlobalRect();
         if (AncestorScrolls(entry.Owner).Any(s => !s.GetGlobalRect().Intersects(source)))
@@ -136,7 +132,8 @@ public partial class BattleScreen
         var size = _inspectionPanel.Size;
         var bounds = GetViewportRect().Size;
         var x = Math.Clamp(source.GetCenter().X - size.X / 2, 8, Math.Max(8, bounds.X - size.X - 8));
-        var y = source.Position.Y - size.Y - 10;
+        var upperEdge = entry.Owner.GetParent() == _hand ? _prompt.GetGlobalRect().Position.Y : source.Position.Y;
+        var y = upperEdge - size.Y - 10;
         if (y < 8) y = source.End.Y + 10;
         if (y + size.Y > bounds.Y - 8)
         {

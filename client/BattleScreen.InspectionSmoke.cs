@@ -23,6 +23,8 @@ public partial class BattleScreen
                 // Enter before the first container layout, as can happen when restoring keyboard focus.
                 var earlyCard = _handCards.First();
                 earlyCard.Key.EmitSignal(Control.SignalName.MouseEntered);
+                if (_inspectionPanel.Visible) throw new InvalidOperationException("快速经过手牌时过早弹出详情。");
+                await ToSignal(GetTree().CreateTimer(HoverDetailDelay + .06), SceneTreeTimer.SignalName.Timeout);
                 await KeyboardFrame();
                 CheckCardInspection(earlyCard.Key, earlyCard.Value);
                 earlyCard.Key.EmitSignal(Control.SignalName.MouseExited);
@@ -133,6 +135,7 @@ public partial class BattleScreen
     private async Task MoveInspectionPointer(Vector2 position)
     {
         GetViewport().PushInput(new InputEventMouseMotion { Position = position, GlobalPosition = position }, true);
+        await ToSignal(GetTree().CreateTimer(HoverDetailDelay + .06), SceneTreeTimer.SignalName.Timeout);
         await KeyboardFrame();
     }
 
@@ -141,6 +144,7 @@ public partial class BattleScreen
         if (!_inspectionPanel.Visible || !InspectionLabels(_inspectionPanel).Any(l => l.Text == Card(card))
             || !new Rect2(Vector2.Zero, GetViewportRect().Size).Encloses(_inspectionPanel.GetGlobalRect())
             || _inspectionPanel.GetGlobalRect().Intersects(owner.GetGlobalRect())
+            || owner.GetParent() == _hand && _inspectionPanel.GetGlobalRect().Intersects(_decisionControls.GetGlobalRect())
             || InspectionControls(_inspectionPanel).Any(c => c.MouseFilter != MouseFilterEnum.Ignore || c.FocusMode != FocusModeEnum.None))
             throw new InvalidOperationException($"卡牌预览内容、边界或输入穿透错误：{Card(card)} owner={owner.GetGlobalRect()} preview={_inspectionPanel.GetGlobalRect()} visible={_inspectionPanel.Visible} focus={owner.HasFocus()} scrolls="
                 + string.Join(" / ", AncestorScrolls(owner).Select(s => $"{s.GetGlobalRect()} h={s.ScrollHorizontal} max={s.GetHScrollBar().MaxValue} page={s.GetHScrollBar().Page}")));

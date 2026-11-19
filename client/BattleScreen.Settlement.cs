@@ -65,15 +65,11 @@ public partial class BattleScreen
             var width = height * .715f;
             var panel = new Control { CustomMinimumSize = new Vector2(width, height + 18), MouseFilter = MouseFilterEnum.Pass,
                 TooltipText = Card(card) };
-            var face = Picture(_art.CardFace(card.Kind));
+            var face = CardArtwork(card);
             face.SetAnchorsAndOffsetsPreset(LayoutPreset.TopLeft);
             face.Size = new Vector2(width, height);
             panel.AddChild(face);
-            var rank = Text(Card(card).Split(' ')[0], 12, Paper);
-            rank.Position = new Vector2(0, height); rank.Size = new Vector2(width, 18);
-            rank.AutowrapMode = TextServer.AutowrapMode.Off;
-            rank.MouseFilter = MouseFilterEnum.Ignore;
-            panel.AddChild(rank); _publicCards.AddChild(panel);
+            _publicCards.AddChild(panel);
             BindCardInspection(panel, card, Card(card) + " · 最近公开的牌，当前不在处理区。");
         }
         _resolution = Text(view.Processing.Length > 0 ? $"正在结算 · 共{view.Processing.Length}张" : cards.Length > 0 ? "最近公开牌" : "等待出牌", 13, Gold);

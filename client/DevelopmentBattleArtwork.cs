@@ -14,6 +14,8 @@ internal sealed class DevelopmentBattleArtwork
     private readonly Dictionary<BasicCardKind, Texture2D> _cards = new();
     private readonly Dictionary<(bool Confirm, string State), Texture2D> _buttons = new();
     private readonly Dictionary<string, Texture2D> _sprites = new(StringComparer.Ordinal);
+    public Texture2D Tabletop { get; } = LoadPainting("bronze-table.webp");
+    private readonly Texture2D[] _militia = MilitiaPortraits();
     public Texture2D SeatFrame { get; }
     public Texture2D Guanyu { get; }
     public Texture2D Caocao { get; }
@@ -67,10 +69,31 @@ internal sealed class DevelopmentBattleArtwork
         _sprites.Add(key, texture);
         return texture;
     }
-    public Texture2D? Portrait(BattleProfile profile) => profile switch
+    public Texture2D Portrait(CombatantView unit) => unit.Profile switch
     {
-        BattleProfile.GuanyuStandard => Guanyu, BattleProfile.CaocaoStandard => Caocao, _ => null
+        BattleProfile.GuanyuStandard => Guanyu,
+        BattleProfile.CaocaoStandard => Caocao,
+        BattleProfile.ProtagonistFenjiI => _militia[0],
+        _ => _militia[1 + (unit.SeatId + 2) % 5]
     };
+
+    private static Texture2D[] MilitiaPortraits()
+    {
+        var sheet = LoadPainting("militia.webp");
+        var tile = sheet.GetSize() / new Vector2(3, 2);
+        return Enumerable.Range(0, 6).Select(i => (Texture2D)new AtlasTexture
+        {
+            Atlas = sheet, Region = new Rect2(new Vector2(i % 3, i / 3) * tile, tile), FilterClip = true
+        }).ToArray();
+    }
+
+    private static Texture2D LoadPainting(string name)
+    {
+        using var image = new Image();
+        if (image.LoadWebpFromBuffer(ReadResource(name, "Sanguo.Art.")) != Error.Ok)
+            throw new InvalidDataException("无法读取牌桌美术：" + name);
+        return ImageTexture.CreateFromImage(image);
+    }
 
     public void StyleDecisionButton(Button button, bool confirm)
     {
@@ -121,9 +144,9 @@ internal sealed class DevelopmentBattleArtwork
         return bytes;
     }
 
-    private static byte[] ReadResource(string name)
+    private static byte[] ReadResource(string name, string prefix = "Sanguo.Ol.")
     {
-        using var stream = typeof(DevelopmentBattleArtwork).Assembly.GetManifestResourceStream("Sanguo.Ol." + name)
+        using var stream = typeof(DevelopmentBattleArtwork).Assembly.GetManifestResourceStream(prefix + name)
             ?? throw new InvalidDataException("缺少内嵌OL开发素材：" + name);
         using var buffer = new MemoryStream();
         stream.CopyTo(buffer);

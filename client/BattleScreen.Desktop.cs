@@ -5,9 +5,11 @@ namespace Sanguo.Client;
 
 public partial class BattleScreen
 {
+    private RichTextLabel _history = null!;
+    private TextureRect _backdrop = null!;
     private Panel _sidebar = null!;
-    private Control _sidebarContent = null!, _decisionControls = null!, _progress = null!, _progressFill = null!;
-    private Label _round = null!, _phaseLabel = null!, _handCount = null!;
+    private Control _sidebarContent = null!, _sidebarInfo = null!, _decisionControls = null!, _progress = null!, _progressFill = null!;
+    private Label _round = null!, _deckCount = null!, _phaseLabel = null!, _handCount = null!;
     private Button _autoSelect = null!, _sortHand = null!, _sidebarToggle = null!;
     private readonly List<Button> _sidebarTabs = [];
     private readonly HashSet<string> _selectedDiscards = new(StringComparer.Ordinal);
@@ -51,6 +53,14 @@ public partial class BattleScreen
         button.CustomMinimumSize = Vector2.Zero;
     }
 
+    private void StyleSkillPlate(Button button, bool skill)
+    {
+        var name = skill ? "skillPuTong_" : "long_sqk_btn_";
+        foreach (var (style, frame) in new[] { ("normal", skill ? "up" : "normal"), ("hover", skill ? "over" : "up"), ("pressed", skill ? "over" : "down"), ("disabled", "disabled") })
+            button.AddThemeStyleboxOverride(style, new StyleBoxTexture { Texture = _art.Sprite("selfseat", name + frame),
+                ContentMarginLeft = skill ? 17 : 6, ContentMarginRight = 5, ContentMarginTop = 2, ContentMarginBottom = 2 });
+    }
+
     private Label DesktopLabel(string value, int fontSize = 14, Color? color = null)
     {
         var label = Text(value, fontSize, color);
@@ -64,24 +74,13 @@ public partial class BattleScreen
     private void BuildScreenshotInterface()
     {
         Theme = new Theme { DefaultFont = new SystemFont { FontNames = ["Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC"] }, DefaultFontSize = 15 };
-        var background = new ColorRect { MouseFilter = MouseFilterEnum.Ignore, Color = Colors.White,
-            Material = new ShaderMaterial { Shader = new Shader { Code = """
-                shader_type canvas_item;
-                float grain(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-                void fragment() {
-                    vec2 p = UV - vec2(0.43, 0.40);
-                    float vignette = clamp(1.0 - length(p * vec2(1.2, 1.0)) * 1.25, 0.0, 1.0);
-                    float mottling = grain(floor(UV * vec2(900.0, 600.0))) * 0.035;
-                    float veins = sin(UV.x * 70.0 + sin(UV.y * 24.0) * 0.8) * 0.008;
-                    vec3 bronze = mix(vec3(0.18, 0.14, 0.10), vec3(0.57, 0.47, 0.34), vignette);
-                    COLOR = vec4(bronze + mottling + veins, 1.0);
-                }
-                """ } } };
-        Place(background, 0, 0, 1, 1); AddChild(background);
-        var engraving = new BattleTableBackdrop(); Place(engraving, .02f, .04f, TableRight, .80f); AddChild(engraving);
+        var baseColor = new ColorRect { Color = new Color("231D18"), MouseFilter = MouseFilterEnum.Ignore };
+        Place(baseColor, 0, 0, 1, 1); AddChild(baseColor);
+        _backdrop = new BattleTableBackdrop { Texture = _art.Tabletop };
+        Place(_backdrop, 0, 0, TableRight + .01f, .82f); AddChild(_backdrop);
         var top = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(top, 0, 0, 1, .035f); Box(top, "221F1B", "837256"); AddChild(top);
         var title = DesktopLabel("三国行纪", 19, Gold); Place(title, .012f, 0, .15f, .035f); AddChild(title);
-        _status = DesktopLabel("", 12); Place(_status, .15f, 0, .65f, .035f); AddChild(_status);
+        _status = DesktopLabel("", 12); Place(_status, .15f, 0, .485f, .035f); AddChild(_status);
         var menu = new HBoxContainer(); Place(menu, .49f, .001f, .992f, .033f); AddChild(menu);
         var entries = new List<(string Name, Action Action)> { (CampaignSession is null ? "保存" : "保存行程", SaveBattle),
             (CampaignSession is null ? "读档" : "恢复行程", Restore),
@@ -99,10 +98,17 @@ public partial class BattleScreen
             if (name == "说明") _helpButton = button;
         }
         _table = new Control { MouseFilter = MouseFilterEnum.Ignore }; Place(_table, .005f, .045f, TableRight, .714f); AddChild(_table);
-        _round = DesktopLabel("", 13, Gold); _round.HorizontalAlignment = HorizontalAlignment.Right;
-        Place(_round, .68f, .048f, .815f, .105f); AddChild(_round);
+        var counter = Picture(_art.Sprite("gameBase", "RoundBG"));
+        Place(counter, .72f, .04f, .817f, .100f); AddChild(counter);
+        _round = DesktopLabel("", 14, new Color("FFD494"));
+        _round.HorizontalAlignment = HorizontalAlignment.Center;
+        Place(_round, .47f, 0, .82f, .56f); counter.AddChild(_round);
+        _deckCount = DesktopLabel("", 12); _deckCount.HorizontalAlignment = HorizontalAlignment.Center;
+        Place(_deckCount, .71f, .47f, 1, .99f); counter.AddChild(_deckCount);
         BuildSidebar();
         var bottom = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(bottom, 0, .80f, 1, 1); Box(bottom, "16130FD9", "5D5140"); AddChild(bottom);
+        var selfTrim = Picture(_art.Sprite("seatbottom", "self_general_bg"));
+        Place(selfTrim, .83f, .79f, .997f, .998f); AddChild(selfTrim);
         BuildEquipmentSlots();
         _handScroll = new ScrollContainer { FollowFocus = true, VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
             HorizontalScrollMode = ScrollContainer.ScrollMode.Auto, FocusMode = FocusModeEnum.None };
@@ -129,6 +135,7 @@ public partial class BattleScreen
         foreach (var button in new[] { _autoSelect, _confirm, _cancel, _pass, _end, _ignore })
         {
             DarkButton(button, button == _autoSelect); button.CustomMinimumSize = new Vector2(button == _ignore ? 156 : 88, 31);
+            if (button != _confirm && button != _cancel) StyleSkillPlate(button, false);
             controls.AddChild(button);
         }
         _art.StyleDecisionButton(_confirm, true); _art.StyleDecisionButton(_cancel, false);
@@ -150,19 +157,24 @@ public partial class BattleScreen
     {
         var equipment = new Control { MouseFilter = MouseFilterEnum.Pass,
             TooltipText = "当前开发规则尚未接入装备与判定牌。" }; Place(equipment, .006f, .806f, .116f, .992f); AddChild(equipment);
+        var mat = Picture(_art.Sprite("seatbottom", "self_seat_bg"));
+        // Four inlaid slots occupy the left 298 of the atlas frame's 540 pixels.
+        Place(mat, 0, 0, 540f / 298f, .8f); equipment.AddChild(mat);
         var slots = new[] { ("equip_wuqi", "武器"), ("equip_fangju", "防具"),
             ("equip_jiayima", "+1 坐骑"), ("equip_jianyima", "−1 坐骑"), ("", "判定区") };
         for (var i = 0; i < slots.Length; i++)
         {
             var slot = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(slot, 0, i * .20f, 1, i * .20f + .18f);
-            Box(slot, "211E1B", "827761"); equipment.AddChild(slot);
+            if (i == 4) Box(slot, "211D1988", "6D5D48");
+            else slot.AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
+            equipment.AddChild(slot);
             _reservedSlots.Add(slot);
             if (slots[i].Item1.Length > 0)
             {
                 var icon = Picture(_art.Sprite("seat", slots[i].Item1), TextureRect.StretchModeEnum.KeepAspectCentered);
                 Place(icon, .025f, .1f, .22f, .9f); icon.Modulate = new Color(.7f, .65f, .55f); slot.AddChild(icon);
             }
-            var label = DesktopLabel(slots[i].Item2 + "　—", 12, new Color("938A77")); Place(label, .24f, 0, 1, 1); slot.AddChild(label);
+            var label = DesktopLabel(slots[i].Item2, 12, new Color("938A77")); Place(label, .24f, 0, 1, 1); slot.AddChild(label);
         }
     }
 
@@ -193,7 +205,8 @@ public partial class BattleScreen
     private void BuildSidebar()
     {
         _sidebar = new Panel(); Place(_sidebar, .836f, .04f, .995f, .759f); Box(_sidebar, "211C15E8", "7B6A4D"); AddChild(_sidebar);
-        var ornament = Picture(_art.Sprite("gameBase", "game_right_top_bg")); _sidebar.AddChild(ornament); ornament.Modulate = new Color(1, 1, 1, .3f);
+        var upper = Picture(_art.Sprite("gameBase", "game_right_top_bg")); Place(upper, 0, 0, 1, .60f); _sidebar.AddChild(upper);
+        var lower = Picture(_art.Sprite("gameBase", "game_right_bottom_bg")); Place(lower, 0, .60f, 1, 1); _sidebar.AddChild(lower);
         var tabs = new HBoxContainer(); tabs.AddThemeConstantOverride("separation", 2); Place(tabs, .025f, .012f, .975f, .068f); _sidebar.AddChild(tabs);
         foreach (var name in new[] { "牌局", "记录", "武将" })
         {
@@ -202,8 +215,12 @@ public partial class BattleScreen
             tab.SizeFlagsHorizontal = SizeFlags.ExpandFill; tabs.AddChild(tab); _sidebarTabs.Add(tab);
         }
         _sidebarContent = new Control(); Place(_sidebarContent, .045f, .09f, .955f, .57f); _sidebar.AddChild(_sidebarContent);
+        _sidebarInfo = new Control(); Place(_sidebarInfo, 0, 0, 1, 1); _sidebarContent.AddChild(_sidebarInfo);
+        _history = new RichTextLabel { ScrollFollowing = true, SelectionEnabled = true, FocusMode = FocusModeEnum.None };
+        _history.AddThemeFontSizeOverride("normal_font_size", 13);
+        Place(_history, 0, 0, 1, 1); _sidebarContent.AddChild(_history);
         var divider = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(divider, .025f, .59f, .975f, .594f); Box(divider, "A38C5B"); _sidebar.AddChild(divider);
-        var logTitle = DesktopLabel("战斗消息", 12, Gold); Place(logTitle, .05f, .605f, .95f, .65f); _sidebar.AddChild(logTitle);
+        var logTitle = DesktopLabel("战况", 12, Gold); Place(logTitle, .05f, .605f, .95f, .65f); _sidebar.AddChild(logTitle);
         _sideLog = new RichTextLabel { ScrollFollowing = true, SelectionEnabled = true, FocusMode = FocusModeEnum.None };
         _sideLog.AddThemeFontSizeOverride("normal_font_size", 12); _sideLog.AddThemeColorOverride("default_color", new Color("D5C796"));
         Place(_sideLog, .05f, .66f, .95f, .975f); _sidebar.AddChild(_sideLog);
@@ -216,13 +233,15 @@ public partial class BattleScreen
         _sidebarCollapsed = !_sidebarCollapsed; _sidebar.Visible = !_sidebarCollapsed;
         _sidebarToggle.Text = _sidebarCollapsed ? "‹" : "›";
         Place(_sidebarToggle, _sidebarCollapsed ? .982f : .823f, .42f, _sidebarCollapsed ? .997f : .836f, .468f);
+        Place(_backdrop, 0, 0, _sidebarCollapsed ? 1 : TableRight + .01f, .82f);
         Place(_table, .005f, .045f, _sidebarCollapsed ? .977f : TableRight, .714f);
         Refresh("");
     }
 
     private void UpdateDesktopChrome(BattleView view)
     {
-        _round.Text = $"第 {view.TurnNumber} 回合\n剩余牌 {view.DrawCount}";
+        _round.Text = view.TurnNumber.ToString(); _deckCount.Text = view.DrawCount.ToString();
+        _round.TooltipText = $"第 {view.TurnNumber} 回合，剩余 {view.DrawCount} 张牌";
         _phaseLabel.Text = view.WinnerTeamId is not null ? "战斗结束" : view.Response is not null ? "响应阶段"
             : view.Phase == BattlePhase.Discard ? "弃牌阶段" : "出牌阶段";
         var focus = view.Combatants.Single(u => u.EntityId == _focusUnitId);
@@ -237,17 +256,14 @@ public partial class BattleScreen
             _progressFill.AnchorRight = .01f + .98f * _selectedDiscards.Count / Math.Max(1f, RequiredDiscards);
             _progressFill.Visible = _selectedDiscards.Count > 0;
         }
-        Clear(_sidebarContent);
+        _history.Visible = _sidebarTab == 1;
+        _sidebarInfo.Visible = !_history.Visible;
+        Clear(_sidebarInfo);
         for (var i = 0; i < _sidebarTabs.Count; i++) _sidebarTabs[i].Modulate = i == _sidebarTab ? new Color("F7D997") : new Color("B1A58F");
-        if (_sidebarTab == 1)
+        if (_sidebarTab == 1) return;
+        if (_sidebarTab == 2)
         {
-            var history = new RichTextLabel { Text = _logText.Text, ScrollFollowing = true, SelectionEnabled = true, FocusMode = FocusModeEnum.None };
-            history.AddThemeColorOverride("default_color", new Color("D5C16E"));
-            history.AddThemeFontSizeOverride("normal_font_size", 12); Place(history, 0, 0, 1, 1); _sidebarContent.AddChild(history);
-        }
-        else if (_sidebarTab == 2)
-        {
-            var list = new VBoxContainer(); Place(list, 0, 0, 1, 1); _sidebarContent.AddChild(list);
+            var list = new VBoxContainer(); Place(list, 0, 0, 1, 1); _sidebarInfo.AddChild(list);
             foreach (var unit in view.Combatants.OrderBy(u => u.SeatId))
             {
                 var id = unit.EntityId;
@@ -258,11 +274,11 @@ public partial class BattleScreen
         }
         else
         {
-            var title = DesktopLabel("单机对战", 18, Gold); title.HorizontalAlignment = HorizontalAlignment.Center; Place(title, 0, .02f, 1, .15f); _sidebarContent.AddChild(title);
+            var title = DesktopLabel("单机对战", 18, Gold); title.HorizontalAlignment = HorizontalAlignment.Center; Place(title, 0, .02f, 1, .15f); _sidebarInfo.AddChild(title);
             var label = DesktopLabel($"我方 {view.Combatants.Count(u => u.TeamId == "a" && u.Alive)} 人  ·  敌方 {view.Combatants.Count(u => u.TeamId == "b" && u.Alive)} 人\n\n"
                 + $"{UnitName(view, view.ActiveUnitId)}的回合\n牌堆 {view.DrawCount}　弃牌 {view.DiscardPile.Length}\n\n"
-                + "悬停放大，拖动整理手牌。\n拖向发光目标即可出牌；\n自用或响应牌拖入出牌区。\n也可点牌、点目标后确定。\n\n弃牌时可多选，或一键选择。", 13, new Color("C7BA9D"));
-            Place(label, .04f, .19f, .96f, .98f); _sidebarContent.AddChild(label);
+                + _prompt.Text, 13, new Color("C7BA9D"));
+            Place(label, .04f, .19f, .96f, .98f); _sidebarInfo.AddChild(label);
         }
     }
 
@@ -286,9 +302,7 @@ public partial class BattleScreen
     {
         if (!ChoosingDiscards)
         {
-            var line = PreviewTargetLine();
             Confirm();
-            if (line is { } shot) _targetLine.Play(shot.From, shot.To);
             return;
         }
         if (_selectedDiscards.Count != RequiredDiscards || RequiredDiscards == 0) return;
@@ -324,6 +338,6 @@ public partial class BattleScreen
     private void PlayPublicTargetLine(BattleView view, string source, string? target)
     {
         if (target is null || source == target || !_seatButtons.TryGetValue(source, out var from) || !_seatButtons.TryGetValue(target, out var to)) return;
-        _targetLine.Play(from.GetGlobalRect().GetCenter(), to.GetGlobalRect().GetCenter());
+        _targetLine.Play(from.GetGlobalRect().GetCenter(), to.GetGlobalRect());
     }
 }

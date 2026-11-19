@@ -251,10 +251,13 @@ public partial class BattleScreen
             return true;
         }
         if (!_doubleClickConfirm || input.ButtonIndex != MouseButton.Left || !input.DoubleClick) return false;
-        var card = _handCards.FirstOrDefault(p => !p.Key.Disabled && p.Key.GetGlobalRect().HasPoint(input.Position)
+        if (ChoosingDiscards) return false;
+        // Later siblings paint on top when a large hand overlaps.
+        var card = _handCards.Reverse().FirstOrDefault(p => p.Key.GetGlobalRect().HasPoint(input.Position)
             && AncestorScrolls(p.Key).All(s => s.GetGlobalRect().HasPoint(input.Position)));
         if (card.Key is not null)
         {
+            if (card.Key.Disabled) return true;
             // A second click must never guess a target or cost. Preserve the current card's chosen target.
             if (_selectedCard != card.Value.InstanceId) SelectCard(card.Value.InstanceId);
             var actions = _interaction.View.LegalActions.Where(a => a.CardId == card.Value.InstanceId && a.SkillId == _selectedSkill

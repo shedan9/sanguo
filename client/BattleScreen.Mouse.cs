@@ -16,7 +16,7 @@ public partial class BattleScreen
     private readonly Dictionary<Button, BattleAction> _choiceActions = new();
     private string? _selectedSkill, _costCard, _ignoredTrick;
     private bool _refreshing;
-    private const string MouseHint = "悬停放大牌面；拖动整理手牌，拖向发光目标出牌；也可点击选择后确定。";
+    private const string MouseHint = "";
 
     private static void Place(Control node, float left, float top, float right, float bottom)
     {
@@ -71,7 +71,7 @@ public partial class BattleScreen
                 _table.AddChild(button); _seatButtons.Add(units[i].EntityId, button);
             }
             var self = GeneralButton(view, focus, actorId); Place(self, 0, 0, 1, 1); _selfSeat.AddChild(self); _seatButtons.Add(focus.EntityId, self);
-            UpdateLog(view); _sideLog.Text = _logText.Text; UpdatePresentation(view);
+            UpdateLog(view); UpdatePresentation(view);
             RenderSkills(view, actorId); RenderMouseHand(view, actorId); ResolveMouseSelection(view);
             _prompt.Text = MousePrompt(view);
             if (CampaignSession is not null && view.WinnerTeamId is not null) _prompt.Text += " · 请返回行程记录战果";
@@ -82,6 +82,13 @@ public partial class BattleScreen
                     BattleSkills.FenjiI => _selectedCard is null ? "奋击：先选择【杀】，再选择额外弃置的手牌与目标" : _costCard is null ? "奋击：再选择一张要弃置的手牌" : "奋击：请选择目标，然后确定",
                     _ => _prompt.Text
                 };
+            if (view.Response is null && !ChoosingDiscards && _selectedCard is not null && _selectedSkill is null)
+            {
+                var card = focus.VisibleHand.FirstOrDefault(c => c.InstanceId == _selectedCard);
+                if (card is not null)
+                    _prompt.Text = _selectedTarget is { } target ? $"对{UnitName(view, target)}使用【{CardName(card.Kind)}】"
+                        : CandidateActions(view).Any(NeedsTarget) ? $"请选择【{CardName(card.Kind)}】的目标" : $"使用【{CardName(card.Kind)}】";
+            }
             _confirm.Disabled = _interaction.Selection is null;
             _cancel.Disabled = _selectedCard is null && _selectedSkill is null;
             _pass.Visible = view.LegalActions.Any(a => a.Kind == BattleActionKind.Pass);
@@ -90,7 +97,7 @@ public partial class BattleScreen
             _ignore.Visible = view.Response?.Kind == EffectKind.Nullification && view.LegalActions.Any(a => a.Kind == BattleActionKind.Nullify);
             _confirm.Text = view.Response?.Kind == EffectKind.InvokeJianxiong ? "发动" : "确定";
             _preview.Text = _interaction.Selection is { } action ? Describe(view, action) : "";
-            _feedback.Text = _settlementText.Length > 0 ? _settlementText : message; _feedback.TooltipText = message + "\n" + _settlementText;
+            _feedback.Text = message.Length > 0 ? message : _settlementText; _feedback.TooltipText = message + "\n" + _settlementText;
             UpdateDesktopChrome(view);
             RenderHandChoice(view);
             if (_handDialog.Visible) UpdateHandInspection();
@@ -100,11 +107,20 @@ public partial class BattleScreen
         finally { _refreshing = false; }
     }
 
+    private readonly ShaderMaterial _fallenPortrait = new() { Shader = new Shader { Code = """
+        shader_type canvas_item;
+        void fragment() {
+            vec4 pixel = texture(TEXTURE, UV);
+            COLOR = vec4(vec3(dot(pixel.rgb, vec3(0.299, 0.587, 0.114)) * 0.72), pixel.a);
+        }
+        """ } };
+
     private Button GeneralButton(BattleView view, CombatantView unit, string? actor)
     {
         var targetable = CandidateActions(view).Any(a => a.TargetId == unit.EntityId && NeedsTarget(a));
         var selected = _selectedTarget == unit.EntityId;
         var button = Button("", () => SelectTarget(unit.EntityId)); button.CustomMinimumSize = Vector2.Zero; button.Disabled = !targetable;
+        button.MouseDefaultCursorShape = targetable ? CursorShape.PointingHand : CursorShape.Arrow;
         var active = view.ActiveUnitId == unit.EntityId && unit.Alive;
         var highlight = selected ? new Color("FF4D2D") : active ? new Color("91E34D") : targetable ? Gold : new Color("69604D");
         var border = new StyleBoxFlat { BgColor = new Color("2C2823"), BorderColor = highlight,
@@ -112,47 +128,53 @@ public partial class BattleScreen
             BorderWidthTop = selected || active ? 3 : 1, BorderWidthBottom = selected || active ? 3 : 1,
             ShadowColor = new Color(highlight, selected || active ? .75f : 0), ShadowSize = selected || active ? 8 : 0 };
         button.AddThemeStyleboxOverride("normal", border); button.AddThemeStyleboxOverride("disabled", border);
-        var hover = (StyleBoxFlat)border.Duplicate(); hover.BorderColor = Gold; hover.ShadowColor = new Color(Gold, .6f); hover.ShadowSize = 6;
+        var hover = (StyleBoxFlat)border.Duplicate(); hover.BorderColor = new Color("FF5836");
+        hover.ShadowColor = new Color(hover.BorderColor, .72f); hover.ShadowSize = 9;
         button.AddThemeStyleboxOverride("hover", hover); button.AddThemeStyleboxOverride("pressed", hover);
-        var frame = Picture(_art.Sprite("seatbottom", "other_general_border3")); button.AddChild(frame);
-        var portrait = _art.Portrait(unit.Profile);
-        if (portrait is not null)
-        {
-            var picture = Picture(portrait, TextureRect.StretchModeEnum.KeepAspectCovered); Place(picture, .065f, .06f, .935f, .94f);
-            if (!unit.Alive) picture.Material = new ShaderMaterial { Shader = new Shader { Code = """
-                shader_type canvas_item;
-                void fragment() {
-                    vec4 pixel = texture(TEXTURE, UV);
-                    float gray = dot(pixel.rgb, vec3(0.299, 0.587, 0.114));
-                    COLOR = vec4(vec3(gray * 0.72), pixel.a);
-                }
-                """ } };
-            button.AddChild(picture);
-        }
-        else
-        {
-            var backdrop = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(backdrop, .065f, .06f, .935f, .94f);
-            Box(backdrop, unit.TeamId == "a" ? "354039" : "493C31", "6D624C"); button.AddChild(backdrop);
-            var name = Text(unit.Profile == BattleProfile.ProtagonistFenjiI ? "乡\n勇" : "乡\n兵", 30, new Color("B5A075")); Place(name, .2f, .20f, .8f, .78f);
-            name.HorizontalAlignment = HorizontalAlignment.Center; name.MouseFilter = MouseFilterEnum.Ignore; button.AddChild(name);
-        }
-        var nameplate = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(nameplate, .05f, .02f, .95f, .18f); Box(nameplate, "191D1BE8", "655C48", 0); button.AddChild(nameplate);
-        var title = DesktopLabel(UnitName(view, unit.EntityId), 12); Place(title, .20f, .025f, .96f, .14f); button.AddChild(title);
-        var faction = Picture(_art.Sprite("seat", unit.TeamId == "a" ? "seat_country_shu" : "seat_country_wei"), TextureRect.StretchModeEnum.KeepAspectCentered);
-        Place(faction, -.035f, .035f, .18f, .22f); button.AddChild(faction);
+        var team = unit.TeamId == "a" ? "shu" : "wei";
+        var picture = Picture(_art.Portrait(unit), TextureRect.StretchModeEnum.KeepAspectCovered);
+        Place(picture, .035f, .025f, .965f, .97f); button.AddChild(picture);
+        if (!unit.Alive) picture.Material = _fallenPortrait;
+        var frame = Picture(_art.Sprite("seatbottom", unit.Alive ? "other_general_border3" : "other_general_bordergray"));
+        button.AddChild(frame);
+        // The frame's black interior sits underneath the painting. Its carved edges stay visible.
+        button.MoveChild(frame, 0);
+        var header = Picture(_art.Sprite("seat", "seat_opt_tips_bg")); Place(header, .03f, .018f, .97f, .125f); button.AddChild(header);
+        var title = DesktopLabel(unit.TeamId == "a" ? "我方" : "敌方", 12, Paper);
+        Place(title, .17f, .007f, .92f, .136f); button.AddChild(title);
+
+        var titleRail = Picture(_art.Sprite("seat", "general_name_bg_" + team));
+        Place(titleRail, -.02f, .09f, .15f, .60f); button.AddChild(titleRail);
+        var shortName = unit.Profile == BattleProfile.Generic && unit.EntityId.StartsWith("generic.", StringComparison.Ordinal)
+            ? "乡兵" : UnitName(view, unit.EntityId);
+        var name = DesktopLabel(string.Join("\n", shortName.ToCharArray()), 15);
+        name.HorizontalAlignment = HorizontalAlignment.Center;
+        Place(name, -.02f, .18f, .15f, .60f); button.AddChild(name);
+        var faction = Picture(_art.Sprite("seat", "seat_country_" + team), TextureRect.StretchModeEnum.KeepAspectCentered);
+        Place(faction, -.04f, -.01f, .17f, .18f); button.AddChild(faction);
+        var hpTop = .97f - unit.MaxHp * .102f;
+        var hpRail = Picture(_art.Sprite("seat", "blood_bg_s")); Place(hpRail, .86f, hpTop, .99f, .97f); button.AddChild(hpRail);
         for (var i = 0; i < unit.MaxHp; i++)
         {
             var life = Picture(_art.Sprite("seat", i >= unit.Hp ? "blood_empty_s" : unit.Hp <= 1 ? "blood_red_s" : unit.Hp == 2 ? "blood_yellow_s" : "blood_green_s"), TextureRect.StretchModeEnum.KeepAspectCentered);
-            Place(life, .87f, .9f - (unit.MaxHp - i) * .097f, 1f, .9f - (unit.MaxHp - i - 1) * .097f); button.AddChild(life);
+            Place(life, .86f, hpTop + i * .102f, .99f, hpTop + (i + 1) * .102f); button.AddChild(life);
         }
-        var count = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(count, -.025f, .83f, .2f, .96f);
-        Box(count, unit.TeamId == "a" ? "2B643B" : "4A6174", "B1A78E"); button.AddChild(count);
-        var info = DesktopLabel(unit.HandCount.ToString(), 13); info.HorizontalAlignment = HorizontalAlignment.Center; Place(info, 0, 0, 1, 1); count.AddChild(info);
-        var seat = DesktopLabel(new[] { "一", "二", "三", "四", "五", "六", "七", "八" }[unit.SeatId], 13, new Color("C4B28C"));
-        seat.HorizontalAlignment = HorizontalAlignment.Center; Place(seat, .3f, 1.01f, .7f, 1.12f); button.AddChild(seat);
-        var marker = selected ? "已选" : targetable ? "可选" : actor == unit.EntityId ? "响应" : view.ActiveUnitId == unit.EntityId ? "回合" : "";
+        var count = Picture(_art.Sprite("seat", "card_num_bg_" + team));
+        Place(count, -.035f, .53f, .165f, .665f); button.AddChild(count);
+        var info = DesktopLabel(unit.HandCount.ToString(), 13); info.HorizontalAlignment = HorizontalAlignment.Center;
+        Place(info, .04f, 0, .96f, .90f); count.AddChild(info);
+        var seat = Picture(_art.Sprite("seat", "Player_Index_" + (unit.SeatId + 1)), TextureRect.StretchModeEnum.KeepAspectCentered);
+        if (unit.EntityId == _focusUnitId) Place(seat, .75f, .02f, .94f, .13f);
+        else Place(seat, .39f, .99f, .61f, 1.11f);
+        button.AddChild(seat);
+        var marker = selected ? "已选目标" : targetable ? "可选目标" : actor == unit.EntityId && view.Response is not null ? "等待响应"
+            : active ? (view.Phase == BattlePhase.Discard ? "弃牌阶段" : "回合中") : "";
         if (!unit.Alive) marker = "阵亡";
-        var mark = DesktopLabel(marker, 13, !unit.Alive ? new Color("E45C46") : Gold); Place(mark, .22f, .82f, .85f, .95f); button.AddChild(mark);
+        var ribbon = Picture(_art.Sprite("seat", "seat_opt_tips_bg")); Place(ribbon, .08f, .844f, .87f, .979f); ribbon.Visible = marker.Length > 0; button.AddChild(ribbon);
+        var mark = DesktopLabel(marker, 13, !unit.Alive ? new Color("E45C46") : Gold); mark.HorizontalAlignment = HorizontalAlignment.Center; Place(mark, .08f, .844f, .87f, .979f); button.AddChild(mark);
+        var glow = Picture(_art.Sprite("seatbottom", selected ? "seat_select_state_3" : "seat_select_state_1"));
+        Place(glow, -.10f, -.076f, 1.10f, 1.076f);
+        glow.Visible = selected || active; button.AddChild(glow);
         if (!unit.Alive)
         {
             var stamp = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(stamp, .22f, .34f, .76f, .72f);
@@ -160,9 +182,20 @@ public partial class BattleScreen
             var dead = DesktopLabel("阵\n亡", 24, new Color("D72D20")); dead.HorizontalAlignment = HorizontalAlignment.Center;
             Place(dead, 0, 0, 1, 1); stamp.AddChild(dead);
         }
-        button.TooltipText = string.Join("\n", unit.Skills.Select(s => s.Definition.Name + "：" + s.Definition.Text));
-        button.MouseEntered += () => { if (targetable) _hoverTarget = unit.EntityId; };
-        button.MouseExited += () => { if (_hoverTarget == unit.EntityId) _hoverTarget = null; };
+        button.TooltipText = UnitName(view, unit.EntityId) + $"　体力 {unit.Hp}/{unit.MaxHp}　手牌 {unit.HandCount} 张\n" + string.Join("\n", unit.Skills.Select(s => s.Definition.Name + "：" + s.Definition.Text));
+        button.MouseEntered += () =>
+        {
+            if (!targetable) return;
+            _hoverTarget = unit.EntityId;
+            glow.Texture = _art.Sprite("seatbottom", selected ? "seat_select_state_3" : "seat_select_state_2");
+            glow.Visible = true;
+        };
+        button.MouseExited += () =>
+        {
+            if (_hoverTarget == unit.EntityId) _hoverTarget = null;
+            glow.Visible = selected || active;
+            glow.Texture = _art.Sprite("seatbottom", selected ? "seat_select_state_3" : "seat_select_state_1");
+        };
         return button;
     }
 
@@ -177,7 +210,7 @@ public partial class BattleScreen
             {
                 var chosen = _selectedSkill != id; ClearSelection(); if (chosen) _selectedSkill = id; Refresh("请选择技能需要的牌。");
             });
-            DarkButton(button); button.CustomMinimumSize = new Vector2(72, 28); button.AddThemeFontSizeOverride("font_size", 14);
+            DarkButton(button); StyleSkillPlate(button, true); button.CustomMinimumSize = new Vector2(72, 28); button.AddThemeFontSizeOverride("font_size", 14);
             button.Disabled = !view.LegalActions.Any(a => a.SkillId == id); button.TooltipText = skill.Definition.Text;
             _skills.AddChild(button); _skillButtons.Add(id, button);
         }
@@ -206,7 +239,7 @@ public partial class BattleScreen
         foreach (var card in cards) if (!_handOrder.Contains(card.InstanceId)) _handOrder.Add(card.InstanceId);
         if (!_sortByKind) cards = cards.OrderBy(c => _handOrder.IndexOf(c.InstanceId)).ToArray();
         // Reserve scrollbar space even when the hand overflows; the row must fit above the window edge.
-        var height = Math.Max(72, GetViewportRect().Size.Y * .191f - 28); var width = height * .715f;
+        var height = Math.Max(72, GetViewportRect().Size.Y * .191f - 18); var width = height * .715f;
         var available = GetViewportRect().Size.X * .65f;
         var step = cards.Length <= 1 ? width : Math.Clamp((available - width) / Math.Max(1, cards.Length - 1), Math.Min(28, width), width + 3);
         _hand.CustomMinimumSize = new Vector2(step * Math.Max(0, cards.Length - 1) + width, height + 10);
@@ -319,7 +352,7 @@ public partial class BattleScreen
         _choiceOverlay.Visible = view.PendingDecision?.ControllerId == "player" && view.Response?.Kind == EffectKind.SelectHandCard;
         if (!_choiceOverlay.Visible) return;
         var shade = new ColorRect { Color = new Color(0, 0, 0, .62f), MouseFilter = MouseFilterEnum.Stop }; Place(shade, 0, 0, 1, 1); _choiceOverlay.AddChild(shade);
-        var panel = new Panel(); Place(panel, .20f, .23f, .80f, .65f); Box(panel, "252820", "BA9C60", 2); _choiceOverlay.AddChild(panel);
+        var panel = new Panel(); Place(panel, .20f, .23f, .80f, .65f); Box(panel, "251F19", "BA9C60", 2); _choiceOverlay.AddChild(panel);
         var target = UnitName(view, view.Response!.TargetId);
         var title = Text("选择 " + target + " 的牌", 22, Gold); Place(title, .04f, .04f, .96f, .18f); panel.AddChild(title);
         var label = Text("手牌区", 14); Place(label, .04f, .20f, .18f, .30f); panel.AddChild(label);
@@ -329,11 +362,13 @@ public partial class BattleScreen
         {
             var button = Button("", () => { _interaction.Select(action); Confirm(); }); button.CustomMinimumSize = new Vector2(76, 106);
             button.TooltipText = "选择一张手牌";
-            var back = new Panel { MouseFilter = MouseFilterEnum.Ignore }; Place(back, .06f, .04f, .94f, .96f); Box(back, "24362E", "C8AF70", 2); button.AddChild(back);
-            var glyph = Text("三\n国\n杀", 20, Gold); Place(glyph, .15f, .10f, .85f, .90f); glyph.HorizontalAlignment = HorizontalAlignment.Center; glyph.MouseFilter = MouseFilterEnum.Ignore; button.AddChild(glyph);
+            var back = new StyleBoxTexture { Texture = _art.Sprite("seatbottom", "card_normal") };
+            foreach (var state in new[] { "normal", "pressed", "hover" }) button.AddThemeStyleboxOverride(state, back);
+            button.MouseEntered += () => button.Modulate = new Color(1.18f, 1.13f, .96f);
+            button.MouseExited += () => button.Modulate = Colors.White;
             _choiceCards.AddChild(button); _choiceActions.Add(button, action);
         }
-        var save = Button("保存牌局", SaveBattle); save.CustomMinimumSize = new Vector2(100, 26); Place(save, .77f, .88f, .96f, .98f); panel.AddChild(save);
+        var save = Button("保存牌局", SaveBattle); DarkButton(save); StyleSkillPlate(save, false); save.CustomMinimumSize = new Vector2(100, 26); Place(save, .77f, .88f, .96f, .98f); panel.AddChild(save);
         var note = Text("点击一张牌背即选取；此处不展示牌面。", 12); Place(note, .04f, .88f, .75f, .98f); panel.AddChild(note);
     }
 }

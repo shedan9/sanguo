@@ -8,6 +8,7 @@
     <ProjectReference Include="../src/Sanguo.Content/Sanguo.Content.csproj" />
     <ProjectReference Include="../src/Sanguo.Infrastructure/Sanguo.Infrastructure.csproj" />
     <EmbeddedResource Include="../content/cards/g0-probe.json" LogicalName="Sanguo.G0.cards.json" />
+    <EmbeddedResource Include="../content/artwork/*.webp" LogicalName="Sanguo.Art.%(Filename)%(Extension)" />
     <!-- Internal development artwork; original files remain in the evidence directory. -->
     <EmbeddedResource Include="../content/evidence/ol-public-20261112/catalog.json;
                                ../content/evidence/ol-public-20261112/portraits/guanyu-200.png;

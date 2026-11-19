@@ -97,10 +97,13 @@ public partial class BattleScreen : Control
     {
         var view = _interaction.View;
         var selection = _interaction.Selection;
+        var origin = PreviewTargetLine()?.From;
         var result = _interaction.Confirm();
         ClearSelection();
         Refresh(result.Accepted && selection is not null
             ? UnitName(view, view.PendingDecision!.ActorId) + "：" + Describe(view, selection) + "。" + Outcome(view, _interaction.View) : result.Message);
+        if (result.Accepted && origin is { } from && selection?.TargetId is { } target && _seatButtons.TryGetValue(target, out var seat))
+            _targetLine.Play(from, seat.GetGlobalRect());
     }
 
     private void AdvanceAi()
@@ -161,7 +164,34 @@ public partial class BattleScreen : Control
     private void UpdateLog(BattleView view)
     {
         if (_logVersion == view.StateVersion) return;
-        _logText.Text = string.Join("\n", _interaction.ReadLog().Select(e => $"{e.Sequence:D3}  {DescribeEvent(view, e)}"));
+        var events = _interaction.ReadLog();
+        _logText.Text = string.Join("\n", events.Select(e => $"{e.Sequence:D3}  {DescribeEvent(view, e)}"));
+        _history.Clear();
+        for (var i = 0; i < events.Length; i++)
+        {
+            var e = events[i];
+            var line = DescribeEvent(view, e);
+            if (e.Code == "card.drawn")
+            {
+                var count = 1;
+                while (i + 1 < events.Length && events[i + 1].Code == e.Code && events[i + 1].ActorId == e.ActorId)
+                { count++; i++; }
+                line = $"{UnitName(view, e.ActorId)}摸了 {count} 张牌";
+            }
+            _history.PushColor(e.Code == "turn.started" ? new Color("F5CC75") : e.Card is not null ? new Color("E2CDA8") : new Color("ACA493"));
+            _history.AddText(line + "\n"); _history.Pop();
+        }
+        _sideLog.Clear();
+        foreach (var e in events.Where(e => e.Code is "turn.started" or "skill.used" or "damage.dealt" or "hp.recovered"
+            or "dying.started" or "unit.died" or "battle.finished").TakeLast(6))
+        {
+            var color = e.Code switch
+            {
+                "damage.dealt" or "dying.started" or "unit.died" => new Color("F09E7B"),
+                "hp.recovered" => new Color("A9CA8B"), "turn.started" => new Color("C8BFA6"), _ => Gold
+            };
+            _sideLog.PushColor(color); _sideLog.AddText(DescribeEvent(view, e) + "\n"); _sideLog.Pop();
+        }
         _logVersion = view.StateVersion;
     }
 
@@ -281,6 +311,18 @@ public partial class BattleScreen : Control
         return picture;
     }
 
+    private TextureRect CardArtwork(BattleCard card)
+    {
+        var face = Picture(_art.CardFace(card.Kind));
+        var rankName = card.Rank switch { 1 => "A", 11 => "J", 12 => "Q", 13 => "K", _ => card.Rank.ToString() };
+        var ink = card.Suit is "heart" or "diamond" ? "red" : "black";
+        var suit = Picture(_art.Sprite("seat", "other_" + card.Suit), TextureRect.StretchModeEnum.KeepAspectCentered);
+        var rank = Picture(_art.Sprite("seat", $"other_{ink}_{rankName}"), TextureRect.StretchModeEnum.KeepAspectCentered);
+        Place(suit, .04f, .03f, .225f, .15f); face.AddChild(suit);
+        Place(rank, .04f, .14f, .225f, .26f); face.AddChild(rank);
+        return face;
+    }
+
     private Button CreateCardButton(BattleCard card, bool legal, Action select)
     {
         var selected = card.InstanceId == _selectedCard || card.InstanceId == _costCard || _selectedDiscards.Contains(card.InstanceId);
@@ -296,21 +338,12 @@ public partial class BattleScreen : Control
         content.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         content.OffsetLeft = 2; content.OffsetRight = -2; content.OffsetTop = 2; content.OffsetBottom = -2;
         button.AddChild(content);
-        content.AddChild(Picture(_art.CardFace(card.Kind)));
-        var captionBackground = new ColorRect { Color = new Color("211B16D9"), MouseFilter = MouseFilterEnum.Ignore };
-        captionBackground.AnchorTop = 1; captionBackground.AnchorBottom = 1; captionBackground.AnchorRight = 1;
-        captionBackground.OffsetTop = -18;
-        content.AddChild(captionBackground);
-        var caption = Text(CardName(card.Kind) + (selected ? " ✓" : ""), 11, Paper);
-        caption.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); caption.HorizontalAlignment = HorizontalAlignment.Center;
-        caption.MouseFilter = MouseFilterEnum.Ignore; captionBackground.AddChild(caption);
-        var rank = Text((card.Rank switch { 1 => "A", 11 => "J", 12 => "Q", 13 => "K", _ => card.Rank.ToString() })
-            + "\n" + (card.Suit switch { "spade" => "♠", "heart" => "♥", "club" => "♣", "diamond" => "♦", _ => "?" }), 14,
-            card.Suit is "heart" or "diamond" ? new Color("A51F20") : Ink);
-        rank.Position = new Vector2(1, 1); rank.Size = new Vector2(20, 37);
-        rank.HorizontalAlignment = HorizontalAlignment.Center; rank.MouseFilter = MouseFilterEnum.Ignore;
-        var rankBackground = new ColorRect { Position = rank.Position, Size = rank.Size, Color = Paper, MouseFilter = MouseFilterEnum.Ignore };
-        content.AddChild(rankBackground); content.AddChild(rank);
+        content.AddChild(CardArtwork(card));
+        if (selected)
+        {
+            var check = DesktopLabel("✓", 19, new Color("FEF1A4"));
+            Place(check, .65f, .76f, .96f, .98f); check.HorizontalAlignment = HorizontalAlignment.Right; content.AddChild(check);
+        }
         var details = Card(card) + " · " + (card.Kind switch
         {
             BasicCardKind.Slash => "对合法目标使用，造成伤害；也可响应决斗。",
@@ -323,7 +356,6 @@ public partial class BattleScreen : Control
             BasicCardKind.Snatch => "获得距离内目标1张暗手牌（开发范围仅手牌区）。",
             _ => ""
         }) + (legal ? " 可选择；具体目标、转换技能与成本以合法方案为准。" : " 当前无合法动作。");
-        button.TooltipText = details;
         _handInspectionDetails[button] = details;
         BindCardInspection(button, card, details);
         var hoverBorder = (StyleBoxFlat)border.Duplicate();
